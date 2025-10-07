@@ -190,6 +190,11 @@
        (read-syntax source-name
                     (regexp-replace-port in "#!" "#:"))])))
 
+; The error functions of Racket and Gambit differ slightly.
+(define (error message . objs)
+  (raise (exn:fail message #;(apply ~a (add-between (cons message objs) " "))
+                   (current-continuation-marks))))
+
 (let-syntax ([if (λ (stx)
                    (syntax-case stx ()
                      [(_if e0 e1)    #'(if e0 e1 (void))]

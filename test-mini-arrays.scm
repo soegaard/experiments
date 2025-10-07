@@ -958,13 +958,11 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 (pp "mutable-array? and array-setter result tests")
 
-#;(let ((result (cons #f #f)))
-  (let ((getter (lambda (i) (car result)))
-        (setter   (lambda (v i) (set-car! result v)))
-        (domain   (make-interval '#(3) '#(4))))
-    (let ((array (make-array domain
-                             getter
-                             setter)))
+(let ((result (vector #f #f)))
+  (let ((getter  (lambda (i)   (vector-ref result 0)))
+        (setter  (lambda (v i) (vector-set! result 0 v)))
+        (domain  (make-interval '#(3) '#(4))))
+    (let ((array (make-array domain getter setter)))
       (test (array? array)
             #t)
       (test (mutable-array? array)
@@ -974,9 +972,9 @@ OTHER DEALINGS IN THE SOFTWARE.
       ;; We now wrap the getter and setter in checking code, so
       ;; the next two no longer pass
       #; (test (array-setter array)
-      setter)
+               setter)
       #;(test (array-getter array)
-      getter)
+              getter)
       (test (array-domain array)
             domain))))
 
