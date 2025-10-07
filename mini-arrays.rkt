@@ -156,6 +156,7 @@
   
 
 (include "mini-arrays.scm")
+; (include "test-mini-arrays.scm")
 
 (provide (all-defined-out))
 
