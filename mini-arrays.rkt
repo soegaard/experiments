@@ -2,7 +2,11 @@
 (provide (all-defined-out))
 
 (require
-  (for-syntax "regexp-replace-port.rkt")
+  (except-in ffi/vector u8vector-copy!)
+  "vector-functions.rkt" ; s8vector-copy! and friends
+
+  ; (for-syntax "regexp-replace-port.rkt") ; not used at the moment
+
   racket/list
   racket/vector
   racket/syntax
@@ -11,20 +15,6 @@
 
   srfi/27
   
-  srfi/160/s8
-  srfi/160/u8
-  srfi/160/s16
-  srfi/160/u16
-  srfi/160/s32
-  srfi/160/u32
-  srfi/160/s64
-  srfi/160/u64
-
-  srfi/160/f32
-  srfi/160/f64
-
-  ; ffi/vector ; for s8vector and friends
-
   (only-in srfi/1 iota take drop fold list-copy every)
   (only-in srfi/43 vector-every vector-concatenate)
 
@@ -187,7 +177,7 @@
 
 (define-syntax (declare stx) #'(void))
 
-(begin-for-syntax
+#;(begin-for-syntax
   (define read-syntax/gambit
     (case-lambda
       [()
@@ -206,10 +196,14 @@
                      [(_if e0 e1 e2) #'(if e0 e1 e2)]))])
 
   (include "mini-arrays.scm")
-  (include "test-mini-arrays.scm"))  ; currently fails
+  (include "test-mini-arrays.scm")
+  ; (test (+ 1 2) 4) ; '((+ 1 2) " => " 3 ", not " 4)
+  (void)
+  )  
 
 ; (include/reader "test.scm" read-syntax/gambit)        ; copying expressions one-by-one over here
 ; (include/reader "test-mini-arrays.scm" read-syntax/gambit)
+
 
 
 
