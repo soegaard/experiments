@@ -4825,61 +4825,60 @@ OTHER DEALINGS IN THE SOFTWARE.
 ;; (test ((array-getter sparse-array) 0 0)
 ;;       1.)
 ;; 
-;; (let ()
-;;   (define a
-;;     (array-copy
-;;      (make-array (make-interval '#(5 10))
-;;                  list)))
-;;   (define b
-;;     (specialized-array-share
-;;      a
-;;      (make-interval '#(5 5))
-;;      (lambda (i j)
-;;        (values i (+ i j)))))
-;;   ;; Print the \"rows\" of b
-;;   (array-for-each (lambda (row)
-;;                     (pretty-print (array->list row)))
-;;                   (array-curry b 1))
-;; 
-;;   ;; which prints
-;;   ;; ((0 0) (0 1) (0 2) (0 3) (0 4))
-;;   ;; ((1 1) (1 2) (1 3) (1 4) (1 5))
-;;   ;; ((2 2) (2 3) (2 4) (2 5) (2 6))
-;;   ;; ((3 3) (3 4) (3 5) (3 6) (3 7))
-;;   ;; ((4 4) (4 5) (4 6) (4 7) (4 8))
-;;   )
-;; 
-;; (define (palindrome? s)
-;;   (let* ((n
-;;           (string-length s))
-;;          (a
-;;           ;; an array accessing the characters of s
-;;           (make-array (make-interval (vector n))
-;;                       (lambda (i)
-;;                         (string-ref s i))))
-;;          (ra
-;;           ;; the characters accessed in reverse order
-;;           (array-reverse a))
-;;          (half-domain
-;;           (make-interval (vector (quotient n 2)))))
-;;     ;; If n is 0 or 1 the following extracted arrays
-;;     ;; are empty.
-;;     (array-every
-;;      char=?
-;;      ;; the first half of s
-;;      (array-extract a half-domain)
-;;      ;; the reversed second half of s
-;;      (array-extract ra half-domain))))
-;; 
-;; (for-each (lambda (s)
-;;             (for-each display
-;;                       (list "(palindrome? \""
-;;                             s
-;;                             "\") => "
-;;                             (palindrome? s)
-;;                             #\newline)))
-;;           '("" "a" "aa" "ab" "aba" "abc" "abba" "abca" "abbc"))
-;; 
+(let ()
+  (define a
+    (array-copy
+     (make-array (make-interval '#(5 10))
+                 list)))
+  (define b
+    (specialized-array-share
+     a
+     (make-interval '#(5 5))
+     (lambda (i j)
+       (values i (+ i j)))))
+  ;; Print the \"rows\" of b
+  (array-for-each (lambda (row)
+                    (pretty-print (array->list row)))
+                  (array-curry b 1))
+
+  ;; which prints
+  ;; ((0 0) (0 1) (0 2) (0 3) (0 4))
+  ;; ((1 1) (1 2) (1 3) (1 4) (1 5))
+  ;; ((2 2) (2 3) (2 4) (2 5) (2 6))
+  ;; ((3 3) (3 4) (3 5) (3 6) (3 7))
+  ;; ((4 4) (4 5) (4 6) (4 7) (4 8))
+  )
+
+(define (palindrome? s)
+  (let* ((n
+          (string-length s))
+         (a
+          ;; an array accessing the characters of s
+          (make-array (make-interval (vector n))
+                      (lambda (i)
+                        (string-ref s i))))
+         (ra
+          ;; the characters accessed in reverse order
+          (array-reverse a))
+         (half-domain
+          (make-interval (vector (quotient n 2)))))
+    ;; If n is 0 or 1 the following extracted arrays
+    ;; are empty.
+    (array-every
+     char=?
+     ;; the first half of s
+     (array-extract a half-domain)
+     ;; the reversed second half of s
+     (array-extract ra half-domain))))
+
+(for-each (lambda (s)
+            (for-each display
+                      (list "(palindrome? \""
+                            s
+                            "\") => "
+                            (palindrome? s)
+                            #\newline)))
+          '("" "a" "aa" "ab" "aba" "abc" "abba" "abca" "abbc"))
 ;; (let ((a (make-array (make-interval '#(10)) (lambda (i) i))))
 ;;   (test (array-fold-left cons '() a)
 ;;         '((((((((((() . 0) . 1) . 2) . 3) . 4) . 5) . 6) . 7) . 8) . 9))
@@ -5331,100 +5330,109 @@ OTHER DEALINGS IN THE SOFTWARE.
 ;;   (pretty-print (list (array-domain image)
 ;;                       (array->list* image))))
 ;; 
-;; (define (LU-decomposition A)
-;;   ;; Assumes the domain of A is [0,n)\\times [0,n)
-;;   ;; and that Gaussian elimination can be applied
-;;   ;; without pivoting.
-;;   (let ((n
-;;          (interval-upper-bound (array-domain A) 0))
-;;         (A_
-;;          (array-getter A)))
-;;     (do ((i 0 (fx+ i 1)))
-;;         ((= i (fx- n 1)) A)
-;;       (let* ((pivot
-;;               (A_ i i))
-;;              (column/row-domain
-;;               ;; both will be one-dimensional
-;;               (make-interval (vector (+ i 1))
-;;                              (vector n)))
-;;              (column
-;;               ;; the column below the (i,i) entry
-;;               (specialized-array-share A
-;;                                        column/row-domain
-;;                                        (lambda (k)
-;;                                          (values k i))))
-;;              (row
-;;               ;; the row to the right of the (i,i) entry
-;;               (specialized-array-share A
-;;                                        column/row-domain
-;;                                        (lambda (k)
-;;                                          (values i k))))
-;; 
-;;              ;; the subarray to the right and
-;;              ;;below the (i,i) entry
-;;              (subarray
-;;               (array-extract
-;;                A (make-interval
-;;                   (vector (fx+ i 1) (fx+ i 1))
-;;                   (vector n         n)))))
-;;         ;; compute multipliers
-;;         (array-assign!
-;;          column
-;;          (array-map (lambda (x)
-;;                       (/ x pivot))
-;;                     column))
-;;         ;; subtract the outer product of i'th
-;;         ;; row and column from the subarray
-;;         (array-assign!
-;;          subarray
-;;          (array-map -
-;;                     subarray
-;;                     (array-outer-product * column row)))))))
-;; 
-;; 
-;; (define A
-;;   ;; A Hilbert matrix
-;;   (array-copy
-;;    (make-array (make-interval '#(4 4))
-;;                (lambda (i j)
-;;                  (/ (+ 1 i j))))))
-;; 
-;; (display "\nHilbert matrix:\n\n")
-;; (array-display A)
-;; 
-;; (LU-decomposition A)
-;; 
-;; (display "\nLU decomposition of Hilbert matrix:\n\n")
-;; 
-;; (array-display A)
-;; 
-;; ;;; Functions to extract the lower- and upper-triangular
-;; ;;; matrices of the LU decomposition of A.
-;; 
-;; (define (L a)
-;;   (let ((a_ (array-getter a))
-;;         (d  (array-domain a)))
-;;     (make-array
-;;      d
-;;      (lambda (i j)
-;;        (cond ((= i j) 1)        ;; diagonal
-;;              ((> i j) (a_ i j)) ;; below diagonal
-;;              (else 0))))))      ;; above diagonal
-;; 
-;; (define (U a)
-;;   (let ((a_ (array-getter a))
-;;         (d  (array-domain a)))
-;;     (make-array
-;;      d
-;;      (lambda (i j)
-;;        (cond ((<= i j) (a_ i j)) ;; diagonal and above
-;;              (else 0))))))       ;; below diagonal
-;; 
-;; (display "\nLower triangular matrix of decomposition of Hilbert matrix:\n\n")
-;; (array-display (L A))
-;; 
-;; (display "\nUpper triangular matrix of decomposition of Hilbert matrix:\n\n")
-;; (array-display (U A))
+(define (LU-decomposition A)
+  ;; Assumes the domain of A is [0,n)\\times [0,n)
+  ;; and that Gaussian elimination can be applied
+  ;; without pivoting.
+  (let ((n
+         (interval-upper-bound (array-domain A) 0))
+        (A_
+         (array-getter A)))
+    (do ((i 0 (fx+ i 1)))
+        ((= i (fx- n 1)) A)
+      (let* ((pivot
+              (A_ i i))
+             (column/row-domain
+              ;; both will be one-dimensional
+              (make-interval (vector (+ i 1))
+                             (vector n)))
+             (column
+              ;; the column below the (i,i) entry
+              (specialized-array-share A
+                                       column/row-domain
+                                       (lambda (k)
+                                         (values k i))))
+             (row
+              ;; the row to the right of the (i,i) entry
+              (specialized-array-share A
+                                       column/row-domain
+                                       (lambda (k)
+                                         (values i k))))
+
+             ;; the subarray to the right and
+             ;;below the (i,i) entry
+             (subarray
+              (array-extract
+               A (make-interval
+                  (vector (fx+ i 1) (fx+ i 1))
+                  (vector n         n)))))
+        ;; compute multipliers
+        (array-assign!
+         column
+         (array-map (lambda (x)
+                      (/ x pivot))
+                    column))
+        ;; subtract the outer product of i'th
+        ;; row and column from the subarray
+        (array-assign!
+         subarray
+         (array-map -
+                    subarray
+                    (array-outer-product * column row)))))))
+
+
+(let ()
+  (define A
+    ;; A Hilbert matrix
+    (array-copy
+     (make-array (make-interval '#(4 4))
+                 (lambda (i j)
+                   (/ (+ 1 i j))))))
+
+  (display "\nHilbert matrix:\n\n")
+  (array-display A)
+
+  (LU-decomposition A)
+
+  (display "\nLU decomposition of Hilbert matrix:\n\n")
+
+  (array-display A))
+
+;;; Functions to extract the lower- and upper-triangular
+;;; matrices of the LU decomposition of A.
+
+(define (L a)
+  (let ((a_ (array-getter a))
+        (d  (array-domain a)))
+    (make-array
+     d
+     (lambda (i j)
+       (cond ((= i j) 1)        ;; diagonal
+             ((> i j) (a_ i j)) ;; below diagonal
+             (else 0))))))      ;; above diagonal
+
+(define (U a)
+  (let ((a_ (array-getter a))
+        (d  (array-domain a)))
+    (make-array
+     d
+     (lambda (i j)
+       (cond ((<= i j) (a_ i j)) ;; diagonal and above
+             (else 0))))))       ;; below diagonal
+
+(let ()
+  (define A
+    ;; A Hilbert matrix
+    (array-copy
+     (make-array (make-interval '#(4 4))
+                 (lambda (i j)
+                   (/ (+ 1 i j))))))
+
+  (display "\nLower triangular matrix of decomposition of Hilbert matrix:\n\n")
+  (array-display (L A))
+
+  (display "\nUpper triangular matrix of decomposition of Hilbert matrix:\n\n")
+  (array-display (U A)))
 ;; 
 ;; ;;; We'll define a brief, not-very-efficient matrix multiply routine.
 ;; 
