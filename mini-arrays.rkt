@@ -1,41 +1,45 @@
 #lang racket
+(provide (all-defined-out))
 
 (require
- racket/list
- racket/vector
- racket/syntax
+  (for-syntax "regexp-replace-port.rkt")
+  racket/list
+  racket/vector
+  racket/syntax
 
- (only-in racket/flonum ->fl fl=)
+  (only-in racket/flonum ->fl fl= flrandom)
 
- srfi/160/s8
- srfi/160/u8
- srfi/160/s16
- srfi/160/u16
- srfi/160/s32
- srfi/160/u32
- srfi/160/s64
- srfi/160/u64
+  srfi/27
+  
+  srfi/160/s8
+  srfi/160/u8
+  srfi/160/s16
+  srfi/160/u16
+  srfi/160/s32
+  srfi/160/u32
+  srfi/160/s64
+  srfi/160/u64
 
- srfi/160/f32
- srfi/160/f64
+  srfi/160/f32
+  srfi/160/f64
 
- ; ffi/vector ; for s8vector and friends
+  ; ffi/vector ; for s8vector and friends
 
- (only-in srfi/1 iota take drop fold list-copy every)
- (only-in srfi/43 vector-every vector-concatenate)
+  (only-in srfi/1 iota take drop fold list-copy every)
+  (only-in srfi/43 vector-every vector-concatenate)
 
- rnrs/arithmetic/flonums-6
+  rnrs/arithmetic/flonums-6
 
- (only-in racket/fixnum               fx+ fx= fx< fx> fx<= fxquotient)
- (except-in rnrs/arithmetic/fixnums-6 fx+)
+  (only-in racket/fixnum               fx+ fx= fx< fx> fx<= fxquotient)
+  (except-in rnrs/arithmetic/fixnums-6 fx+)
 
- (for-syntax racket/syntax
-             racket/string
-             (only-in racket/fixnum               fx+ fx= fx< fx> fx<= fxquotient)
-             (except-in rnrs/arithmetic/fixnums-6 fx+)
-             rnrs/arithmetic/flonums-6)
- ; srfi/4
- )
+  (for-syntax racket/syntax
+              racket/string
+              (only-in racket/fixnum               fx+ fx= fx< fx> fx<= fxquotient)
+              (except-in rnrs/arithmetic/fixnums-6 fx+)
+              rnrs/arithmetic/flonums-6)
+  ; srfi/4
+  )
 
 ;; Compatibility helpers for Gambit Scheme code
 
@@ -54,8 +58,37 @@
 (define (flonum->fixnum x)
   (inexact->exact x))
 
+(define (random-f64vector n)
+  (define g (current-pseudo-random-generator))
+  (list->f64vector (build-list n (λ (_) (flrandom g)))))
+
 (define (concatenate xss)
   (append* xss))
+
+(define pp pretty-print)
+
+(define (with-exception-catcher handler thunk)
+  (with-handlers ([(λ (x) #t)
+                   (λ (e) (handler e))])
+    (thunk)))
+
+(define (error-exception? e)
+  #t) ; probably better to use `exn?` here.
+
+(define (error-exception-message e)
+  (exn-message e))
+
+(define (unbound-global-exception? e)
+  #f)
+
+(define unbound-global-exception-variable #f)
+
+(define (wrong-number-of-arguments-exception? e)
+  #f)  ; todo
+
+(define (make-list n [fill 0])
+  (for/list ([_ n]) fill)) 
+
 
 ;;; flilog
 
@@ -153,12 +186,30 @@
                             (apply macro-fn (cdr datums))))))]))
 
 (define-syntax (declare stx) #'(void))
-  
 
-(include "mini-arrays.scm")
-; (include "test-mini-arrays.scm")
+(begin-for-syntax
+  (define read-syntax/gambit
+    (case-lambda
+      [()
+       (read-syntax/gambit (object-name (current-input-port))
+                           (current-input-port))]
+      [(source-name)
+       (read-syntax/gambit source-name
+                           (current-input-port))]
+      [(source-name in)
+       (read-syntax source-name
+                    (regexp-replace-port in "#!" "#:"))])))
 
-(provide (all-defined-out))
+(let-syntax ([if (λ (stx)
+                   (syntax-case stx ()
+                     [(_if e0 e1)    #'(if e0 e1 (void))]
+                     [(_if e0 e1 e2) #'(if e0 e1 e2)]))])
+
+  (include "mini-arrays.scm")
+  (include "test-mini-arrays.scm"))  ; currently fails
+
+; (include/reader "test.scm" read-syntax/gambit)        ; copying expressions one-by-one over here
+; (include/reader "test-mini-arrays.scm" read-syntax/gambit)
 
 
 

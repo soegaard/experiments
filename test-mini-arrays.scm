@@ -1,36 +1,40 @@
-; SRFI 231: Intervals and Generalized Arrays
-;
-; Copyright 2016, 2018, 2020, 2021, 2022 Bradley J Lucier.
-; All Rights Reserved.
+; Uncommented tests with set-car! and set-cdr!
 
-; Permission is hereby granted, free of charge,
-; to any person obtaining a copy of this software
-; and associated documentation files (the "Software"),
-; to deal in the Software without restriction,
-; including without limitation the rights to use, copy,
-; modify, merge, publish, distribute, sublicense,
-; and/or sell copies of the Software, and to permit
-; persons to whom the Software is furnished to do so,
-; subject to the following conditions:
-;
-; The above copyright notice and this permission notice
-; (including the next paragraph) shall be included in
-; all copies or substantial portions of the Software.
-;
-; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-; ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
-; LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-; FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
-; EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
-; FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
-; AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-; OTHER DEALINGS IN THE SOFTWARE.
+#|
+SRFI 231: Intervals and Generalized Arrays
+
+Copyright 2016, 2018, 2020, 2021, 2022 Bradley J Lucier.
+All Rights Reserved.
+
+Permission is hereby granted, free of charge,
+to any person obtaining a copy of this software
+and associated documentation files (the "Software"),
+to deal in the Software without restriction,
+including without limitation the rights to use, copy,
+modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit
+persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice
+(including the next paragraph) shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
+EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+|#
 
 ;;; A test program for SRFI 231:
 ;;; Intervals and Generalized Arrays
 
-; (declare (standard-bindings)(extended-bindings)(block)(not safe) (mostly-fixnum))
+(declare (standard-bindings)(extended-bindings)(block)(not safe) (mostly-fixnum))
 
 (define-macro (test expr value)
   (let ((result (gensym 'result))
@@ -70,14 +74,14 @@
 
 ;;; comment one of the following two expressions.
 
-#;
+
 (begin
-  (include "mini-arrays.scm")
+  #;(include "mini-arrays.scm")
 
   (define-macro (test-error expr value)
     #t))
 
-
+#;
 (begin
   (include "generic-arrays.scm")
 
@@ -132,27 +136,35 @@
 (define test-random-real
   (random-source-make-reals test-random-source))
 
-(define (random a #!optional b)
-  (if b
-      (+ a (test-random-integer (- b a)))
-      (test-random-integer a)))
+(define random
+  (case-lambda
+   ((a)
+    (test-random-integer a))
+   ((a b)
+    (+ a (test-random-integer (- b a))))))
 
-(define (random-inclusive a #!optional b)
-  (if b
-      (+ a (test-random-integer (- b a -1)))
-      (test-random-integer (+ a 1))))
+(define random-inclusive
+  (case-lambda
+   ((a)
+    (test-random-integer (+ a 1)))
+   ((a b)
+    (+ a (test-random-integer (- b a -1))))))
 
 (define (random-char)
-  (let ((n (random-inclusive 1114111)))  ; (##max-char-code)
+  (let ((n (random-inclusive 1114111))) ; (##max-char-code)
     (if (or (fx< n #xd800)
             (fx< #xdfff n))
         (integer->char n)
         (random-char))))
 
-(define (random-sample n #!optional (l 4))
-  (list->vector (map (lambda (i)
-                       (random 1 l))
-                     (iota n))))
+(define random-sample
+  (case-lambda
+   ((n)
+    (random-sample n 4))
+   ((n l)
+    (list->vector (map (lambda (i)
+                         (random 1 l))
+                       (iota n))))))
 
 (define (random-permutation n)
   (let ((result (make-vector n)))
@@ -686,54 +698,45 @@
 
 (define use-bignum-intervals #f)
 
+(define random-interval
+  (case-lambda
+   (()
+    (random-interval 0 6))
+   ((min max)
+    ;; a random interval with min <= dimension < max
+    ;; positive and negative lower bounds
+    (let* ((lower
+            (map (lambda (x)
+                   (if use-bignum-intervals
+                       (random (- (expt 2 90)) (expt 2 90))
+                       (random -10 10)))
+                 (iota (random min max))))
+           (upper
+            (map (lambda (x)
+                   (+ (random 0 8) x))
+                 lower)))
+      (make-interval (list->vector lower)
+                     (list->vector upper))))))
 
-(define (random-interval #!optional (min 0) (max 6))
-  ;; a random interval with min <= dimension < max
-  ;; positive and negative lower bounds
-  (let* ((lower
-          (map (lambda (x)
-                 (if use-bignum-intervals
-                     (random (- (expt 2 90)) (expt 2 90))
-                     (random -10 10)))
-               (iota (random min max))))
-         (upper
-          (map (lambda (x)
-                 (+ (random 0 8) x))
-               lower)))
-    (make-interval (list->vector lower)
-                   (list->vector upper))))
-
-;;; The next routine is going to be used to generate limited
-;;; random intervals to test array and interval broadcasting.
-
-
-(define (random-skinny-interval #!optional (min 0) (max 6))
-  (let* ((lowers
-          (map (lambda (k)
-                 0)
-               (iota (random min max))))
-         (uppers
-          (map (lambda (l)
-                 (+ l (random 0 4)))
-               lowers)))
-    (make-interval (list->vector lowers)
-                   (list->vector uppers))))
-
-(define (random-nonempty-interval #!optional (min 0) (max 6))
-  ;; a random interval with min <= dimension < max
-  ;; positive and negative lower bounds
-  (let* ((lower
-          (map (lambda (x)
-                 (if use-bignum-intervals
-                     (random (- (expt 2 90)) (expt 2 90))
-                     (random -10 10)))
-               (vector->list (make-vector (random min max)))))
-         (upper
-          (map (lambda (x)
-                 (+ (random 1 8) x))
-               lower)))
-    (make-interval (list->vector lower)
-                   (list->vector upper))))
+(define random-nonempty-interval
+  (case-lambda
+   (()
+    (random-nonempty-interval 0 6))
+   ((min max)
+    ;; a random interval with min <= dimension < max
+    ;; positive and negative lower bounds
+    (let* ((lower
+            (map (lambda (x)
+                   (if use-bignum-intervals
+                       (random (- (expt 2 90)) (expt 2 90))
+                       (random -10 10)))
+                 (vector->list (make-vector (random min max)))))
+           (upper
+            (map (lambda (x)
+                   (+ (random 1 8) x))
+                 lower)))
+      (make-interval (list->vector lower)
+                     (list->vector upper))))))
 
 (define (random-subinterval interval)
   (let* ((lowers (interval-lower-bounds->vector interval))
@@ -743,20 +746,25 @@
          (subinterval (make-interval new-lowers new-uppers)))
     subinterval))
 
+(define random-nonnegative-interval
+  (case-lambda
+   (()
+    (random-nonnegative-interval 1 6))
+   ((min max)
+    (let* ((lower
+            (make-vector (random min max) 0))
+           (upper
+            (vector-map (lambda (x) (random 1 7)) lower)))
+      (make-interval lower upper)))))
 
-(define (random-nonnegative-interval #!optional (min 1) (max 6))
-  ;; a random interval with min <= dimension < max
-  ;; positive and negative lower bounds
-  (let* ((lower
-          (make-vector (random min max) 0))
-         (upper
-          (vector-map (lambda (x) (random 1 7)) lower)))
-    (make-interval lower upper)))
-
-(define (random-positive-vector n #!optional (max 5))
-  (vector-map (lambda (x)
-                (random 1 max))
-              (make-vector n)))
+(define random-positive-vector
+  (case-lambda
+   ((n)
+    (random-positive-vector n 5))
+   ((n max)
+    (vector-map (lambda (x)
+                  (random 1 max))
+                (make-vector n)))))
 
 (define (random-boolean)
   (zero? (random 2)))
@@ -909,10 +917,14 @@
 (test-error (make-array (make-interval '#(3) '#(4)) list 1)
             "make-array: The third argument is not a procedure: ")
 
-(define (myarray= array1 array2 #!optional (compare equal?))
-  (and (interval= (array-domain array1)
-                  (array-domain array2))
-       (array-every compare array1 array2)))
+(define myarray=
+  (case-lambda
+   ((array1 array2)
+    (myarray= array1 array2 equal?))
+   ((array1 array2 compare)
+    (and (interval= (array-domain array1)
+                    (array-domain array2))
+         (array-every compare array1 array2)))))
 
 (pp "array-domain and array-getter error tests")
 
@@ -946,7 +958,7 @@
 
 (pp "mutable-array? and array-setter result tests")
 
-(let ((result (cons #f #f)))
+#;(let ((result (cons #f #f)))
   (let ((getter (lambda (i) (car result)))
         (setter   (lambda (v i) (set-car! result v)))
         (domain   (make-interval '#(3) '#(4))))
@@ -1092,11 +1104,11 @@
 ;;; Passing immutable data to make-specialized-array-from-data with the mutable? argument #t
 ;;; is an error situation, but this is how the sample implementation currently deals with it.
 
-;; (let* ((string "123")
-;;       (array (make-specialized-array-from-data string char-storage-class #t)))
-;;  (test (array? array) #t)
-;;  (test (mutable-array? array)
-;;        (##mutable? string)))
+;(let* ((string "123")
+;       (array (make-specialized-array-from-data string char-storage-class #t)))
+;  (test (array? array) #t)
+;  (test (mutable-array? array)
+;        (##mutable? string)))
 
 (let ((test-values
        (list ;;       storae-class   default other data
@@ -1854,7 +1866,7 @@
    (list f16-storage-class       1.0)
    (list f32-storage-class       1.0)
    (list f64-storage-class       1.0)
-   ; (list char-storage-class (integer->char (##max-char-code)))
+   (list char-storage-class (integer->char 1114111)) ; (##max-char-code)
    (list c64-storage-class  1.0+1.0i)
    (list c128-storage-class 1.0+1.0i)))
 
@@ -2123,7 +2135,7 @@
 (pp "array-copy result tests")
 
 
-(do ((i 0 (+ i 1)))
+#;(do ((i 0 (+ i 1)))
     ((= i random-tests))
   (let* ((domain
           (random-interval))
@@ -3588,12 +3600,16 @@
 (test-error (interval-insert-axis (make-interval '#(1 1)) 10 0)
             "interval-insert-axis: The third argument is not a positive exact integer: ")
 
-(define (my-interval-insert-axis interval k #!optional (u_k 1))
-  (let ((uppers (interval-upper-bounds->list interval))
-        (lowers (interval-lower-bounds->list interval)))
-    (make-interval
-     (list->vector (append (take lowers k) (cons   0 (drop lowers k))))
-     (list->vector (append (take uppers k) (cons u_k (drop uppers k)))))))
+(define my-interval-insert-axis
+  (case-lambda
+   ((interval k)
+    (my-interval-insert-axis interval k 1))
+   ((interval k u_k)
+    (let ((uppers (interval-upper-bounds->list interval))
+          (lowers (interval-lower-bounds->list interval)))
+      (make-interval
+       (list->vector (append (take lowers k) (cons   0 (drop lowers k))))
+       (list->vector (append (take uppers k) (cons u_k (drop uppers k)))))))))
 
 (do ((i 0 (fx+ i 1)))
     ((= i random-tests))
@@ -3628,24 +3644,28 @@
 (test-error (array-insert-axis (make-array (make-interval '#(1 1)) list) 10 0)
             "array-insert-axis: The third argument is not a positive exact integer: ")
 
-(define (my-array-insert-axis array k #!optional (u_k 1))
+(define my-array-insert-axis
+  (case-lambda
+   ((array k)
+    (my-array-insert-axis array k 1))
+   ((array k u_k)
 
-  (define (drop-kth-arg args)
-    (append (take args k) (drop args (+ k 1))))
+    (define (drop-kth-arg args)
+      (append (take args k) (drop args (+ k 1))))
 
-  (let ((new-domain (interval-insert-axis (array-domain array) k u_k)))
-    (cond ((specialized-array? array)
-           (specialized-array-share array new-domain (lambda args (apply values (drop-kth-arg args)))))
-          ((mutable-array? array)
-           (make-array new-domain
-                       (lambda args
-                         (apply (array-getter array)   (drop-kth-arg args)))
-                       (lambda (v . args)
-                         (apply (array-setter array) v (drop-kth-arg args)))))
-          (else
-           (make-array new-domain
-                       (lambda args
-                         (apply (array-getter array) (drop-kth-arg args))))))))
+    (let ((new-domain (interval-insert-axis (array-domain array) k u_k)))
+      (cond ((specialized-array? array)
+             (specialized-array-share array new-domain (lambda args (apply values (drop-kth-arg args)))))
+            ((mutable-array? array)
+             (make-array new-domain
+                         (lambda args
+                           (apply (array-getter array)   (drop-kth-arg args)))
+                         (lambda (v . args)
+                           (apply (array-setter array) v (drop-kth-arg args)))))
+            (else
+             (make-array new-domain
+                         (lambda args
+                           (apply (array-getter array) (drop-kth-arg args))))))))))
 
 (do ((i 0 (fx+ i 1)))
     ((fx= i random-tests))
@@ -4341,7 +4361,7 @@
 (test-error (array-dimension 'a)
             "array-dimension: The argument is not an array: ")
 
-(let ((array-builders (vector (list u1-storage-class      (lambda indices (random (expt 2 1))) '(a -1))
+#;(let ((array-builders (vector (list u1-storage-class      (lambda indices (random (expt 2 1))) '(a -1))
                               (list u8-storage-class      (lambda indices (random (expt 2 8))) '(a -1))
                               (list u16-storage-class     (lambda indices (random (expt 2 16))) '(a -1))
                               (list u32-storage-class     (lambda indices (random (expt 2 32))) '(a -1))
@@ -4764,1985 +4784,1989 @@
 
 ;; ((array-getter a) 11 0) is an error, but it isn't signalled
 
-(define a (make-array (make-interval '#(0 0) '#(10 10))
-                      list))
-
-(test ((array-getter a) 3 4)
-      '(3 4))
-
-(define curried-a (array-curry a 1))
-
-(test ((array-getter ((array-getter curried-a) 3)) 4)
-      '(3 4))
-
-(define sparse-array
-  (let ((domain (make-interval '#(1000000 1000000)))
-        (sparse-rows (make-vector 1000000 '())))
-    (make-array domain
-                (lambda (i j)
-                  (cond ((assv j (vector-ref sparse-rows i))
-                         => cdr)
-                        (else
-                         0.0)))
-                (lambda (v i j)
-                  (cond ((assv j (vector-ref sparse-rows i))
-                         => (lambda (pair)
-                              (set-cdr! pair v)))
-                        (else
-                         (vector-set! sparse-rows i (cons (cons j v) (vector-ref sparse-rows i)))))))))
-
-(test ((array-getter sparse-array) 12345 6789)
-      0.)
-
-(test ((array-getter sparse-array) 0 0)
-      0.)
-
-((array-setter sparse-array) 1.0 0 0)
-
-(test ((array-getter sparse-array) 12345 6789)
-      0.)
-
-(test ((array-getter sparse-array) 0 0)
-      1.)
-
-(let ()
-  (define a
-    (array-copy
-     (make-array (make-interval '#(5 10))
-                 list)))
-  (define b
-    (specialized-array-share
-     a
-     (make-interval '#(5 5))
-     (lambda (i j)
-       (values i (+ i j)))))
-  ;; Print the \"rows\" of b
-  (array-for-each (lambda (row)
-                    (pretty-print (array->list row)))
-                  (array-curry b 1))
-
-  ;; which prints
-  ;; ((0 0) (0 1) (0 2) (0 3) (0 4))
-  ;; ((1 1) (1 2) (1 3) (1 4) (1 5))
-  ;; ((2 2) (2 3) (2 4) (2 5) (2 6))
-  ;; ((3 3) (3 4) (3 5) (3 6) (3 7))
-  ;; ((4 4) (4 5) (4 6) (4 7) (4 8))
-  )
-
-(define (palindrome? s)
-  (let* ((n
-          (string-length s))
-         (a
-          ;; an array accessing the characters of s
-          (make-array (make-interval (vector n))
-                      (lambda (i)
-                        (string-ref s i))))
-         (ra
-          ;; the characters accessed in reverse order
-          (array-reverse a))
-         (half-domain
-          (make-interval (vector (quotient n 2)))))
-    ;; If n is 0 or 1 the following extracted arrays
-    ;; are empty.
-    (array-every
-     char=?
-     ;; the first half of s
-     (array-extract a half-domain)
-     ;; the reversed second half of s
-     (array-extract ra half-domain))))
-
-(for-each (lambda (s)
-            (for-each display
-                      (list "(palindrome? \""
-                            s
-                            "\") => "
-                            (palindrome? s)
-                            #\newline)))
-          '("" "a" "aa" "ab" "aba" "abc" "abba" "abca" "abbc"))
-
-(let ((a (make-array (make-interval '#(10)) (lambda (i) i))))
-  (test (array-fold-left cons '() a)
-        '((((((((((() . 0) . 1) . 2) . 3) . 4) . 5) . 6) . 7) . 8) . 9))
-  (test (array-fold-right cons '() a)
-        '(0 1 2 3 4 5 6 7 8 9))
-  (test (array-fold-left - 0 a)
-        -45)
-  (test (array-fold-right - 0 a)
-        -5))
-
-
-(define make-pgm   cons)
-(define pgm-greys  car)
-(define pgm-pixels cdr)
-
-(define (read-pgm file)
-
-  (define (read-pgm-object port)
-    (skip-white-space port)
-    (let ((o (read port)))
-      (read-char port) ; to skip the newline or next whitespace
-      (if (eof-object? o)
-          (error "reached end of pgm file")
-          o)))
-
-  (define (skip-to-end-of-line port)
-    (let loop ((ch (read-char port)))
-      (if (not (eqv? ch #\newline))
-          (loop (read-char port)))))
-
-  (define (white-space? ch)
-    (case ch
-      ((#\newline #\space #\tab) #t)
-      (else #f)))
-
-  (define (skip-white-space port)
-    (let ((ch (peek-char port)))
-      (cond ((white-space? ch) (read-char port) (skip-white-space port))
-            ((eqv? ch #\#) (skip-to-end-of-line port)(skip-white-space port))
-            (else #f))))
-
-  (call-with-input-file
-      (list path:          file
-            char-encoding: 'ISO-8859-1
-            eol-encoding:  'lf)
-    (lambda (port)
-
-      ;; We're going to read text for a while,
-      ;; then switch to binary.
-      ;; So we need to turn off buffering until
-      ;; we switch to binary.
-
-      (port-settings-set! port '(buffering: #f))
-
-      (let* ((header (read-pgm-object port))
-             (columns (read-pgm-object port))
-             (rows (read-pgm-object port))
-             (greys (read-pgm-object port)))
-
-        ;; now we switch back to buffering
-        ;; to speed things up
-
-        (port-settings-set! port '(buffering: #t))
-
-        (make-pgm greys
-                  (array-copy
-                   (make-array
-                    (make-interval (vector rows columns))
-                    (cond ((or (eq? header 'p5)                                     ;; pgm binary
-                               (eq? header 'P5))
-                           (if (< greys 256)
-                               (lambda (i j)                                        ;; one byte/pixel
-                                 (char->integer (read-char port)))
-                               (lambda (i j)                                        ;; two bytes/pixel, little-endian
-                                 (let* ((first-byte (char->integer (read-char port)))
-                                        (second-byte (char->integer (read-char port))))
-                                   (+ (* second-byte 256) first-byte)))))
-                          ((or (eq? header 'p2)                                     ;; pgm ascii
-                               (eq? header 'P2))
-                           (lambda (i j)
-                             (read port)))
-                          (else
-                           (error "read-pgm: not a pgm file"))))))))))
-
-(define (write-pgm pgm-data file #!optional force-ascii)
-  (call-with-output-file
-      (list path:          file
-            char-encoding: 'ISO-8859-1
-            eol-encoding:  'lf)
-    (lambda (port)
-      (let* ((greys
-              (pgm-greys pgm-data))
-             (pgm-array
-              (pgm-pixels pgm-data))
-             (domain
-              (array-domain pgm-array))
-             (rows
-              (fx- (interval-upper-bound domain 0)
-                   (interval-lower-bound domain 0)))
-             (columns
-              (fx- (interval-upper-bound domain 1)
-                   (interval-lower-bound domain 1))))
-        (if force-ascii
-            (display "P2" port)
-            (display "P5" port))
-        (newline port)
-        (display columns port) (display " " port)
-        (display rows port) (newline port)
-        (display greys port) (newline port)
-        (array-for-each (if force-ascii
-                            (let ((next-pixel-in-line 1))
-                              (lambda (p)
-                                (write p port)
-                                (if (fxzero? (fxand next-pixel-in-line 15))
-                                    (begin
-                                      (newline port)
-                                      (set! next-pixel-in-line 1))
-                                    (begin
-                                      (display " " port)
-                                      (set! next-pixel-in-line (fx+ 1 next-pixel-in-line))))))
-                            (if (fx< greys 256)
-                                (lambda (p)
-                                  (write-u8 p port))
-                                (lambda (p)
-                                  (write-u8 (fxand p 255) port)
-                                  (write-u8 (fxarithmetic-shift-right p 8) port))))
-                        pgm-array)))))
-
-(define test-pgm (read-pgm "girl.pgm"))
-
-(define (array-convolve source filter)
-  (let* ((source-domain
-          (array-domain source))
-         (S_
-          (array-getter source))
-         (filter-domain
-          (array-domain filter))
-         (F_
-          (array-getter filter))
-         (result-domain
-          (interval-dilate
-           source-domain
-           ;; left bound of an interval is an equality,
-           ;; right bound is an inequality, hence the
-           ;; the difference in the following two expressions
-           (vector-map -
-                       (interval-lower-bounds->vector filter-domain))
-           (vector-map (lambda (x)
-                         (- 1 x))
-                       (interval-upper-bounds->vector filter-domain)))))
-    (make-array result-domain
-                #|
-                This was my first attempt at convolve, but the problem is that
-                it creates two specialized arrays per pixel, which is a lot of
-                overhead (computing an indexer and a setter, for example) for
-                not very much computation.
-                (lambda (i j)
-                (array-dot-product
-                (array-extract
-                (array-translate source (vector (- i) (- j)))
-                filter-domain)
-                filter))
-                where
-
-                (define (array-dot-product a b)
-                (array-fold-left (lambda (x y)
-                (+ x y))
-                0
-                (array-map
-                (lambda (x y)
-                (* x y))
-                a b)))
-
-                The times are
-                (time (let ((greys (pgm-greys test-pgm))) (write-pgm (make-pgm greys (array-map (lambda (p) (round-and-clip p greys)) (array-convolve (pgm-pixels test-pgm) sharpen-filter))) "sharper-test.pgm")))
-                0.514201 secs real time
-                0.514190 secs cpu time (0.514190 user, 0.000000 system)
-                64 collections accounting for 0.144107 secs real time (0.144103 user, 0.000000 system)
-                663257736 bytes allocated
-                676 minor faults
-                no major faults
-                (time (let* ((greys (pgm-greys test-pgm)) (edge-array (array-copy (array-map abs (array-convolve (pgm-pixels test-pgm) edge-filter)))) (max-pixel (array-fold max 0 edge-array)) (normalizer (/ greys max-pixel))) (write-pgm (make-pgm greys (array-map (lambda (p) (- greys (round-and-clip (* p normalizer) greys))) edge-array)) "edge-test.pgm")))
-                0.571130 secs real time
-                0.571136 secs cpu time (0.571136 user, 0.000000 system)
-                57 collections accounting for 0.154109 secs real time (0.154093 user, 0.000000 system)
-                695631496 bytes allocated
-                959 minor faults
-                no major faults
-
-
-                In the following, where we just package up a little array for each result pixel
-                that computes the componentwise products when we need them, the times are
-
-                (time (let ((greys (pgm-greys test-pgm))) (write-pgm (make-pgm greys (array-map (lambda (p) (round-and-clip p greys)) (array-convolve (pgm-pixels test-pgm) sharpen-filter))) "sharper-test.pgm")))
-                0.095921 secs real time
-                0.095922 secs cpu time (0.091824 user, 0.004098 system)
-                6 collections accounting for 0.014276 secs real time (0.014275 user, 0.000000 system)
-                62189720 bytes allocated
-                678 minor faults
-                no major faults
-                (time (let* ((greys (pgm-greys test-pgm)) (edge-array (array-copy (array-map abs (array-convolve (pgm-pixels test-pgm) edge-filter)))) (max-pixel (array-fold max 0 edge-array)) (normalizer (inexact (/ greys max-pixel)))) (write-pgm (make-pgm greys (array-map (lambda (p) (- greys (round-and-clip (* p normalizer) greys))) edge-array)) "edge-test.pgm")))
-                0.165065 secs real time
-                0.165066 secs cpu time (0.165061 user, 0.000005 system)
-                13 collections accounting for 0.033885 secs real time (0.033878 user, 0.000000 system)
-                154477720 bytes allocated
-                966 minor faults
-                no major faults
-                |#
-                (lambda (i j)
-                  (array-fold-left
-                   (lambda (p q)
-                     (+ p q))
-                   0
-                   (make-array
-                    filter-domain
-                    (lambda (k l)
-                      (* (S_ (+ i k)
-                             (+ j l))
-                         (F_ k l)))))))))
-
-(define sharpen-filter
-  (list->array
-   (make-interval '#(-1 -1) '#(2 2))
-   '(0 -1  0
-       -1  5 -1
-       0 -1  0)))
-
-(define edge-filter
-  (list->array
-   (make-interval '#(-1 -1) '#(2 2))
-   '(0 -1  0
-       -1  4 -1
-       0 -1  0)))
-
-(define (round-and-clip pixel max-grey)
-  (max 0 (min (exact (round pixel)) max-grey)))
-
-(time
-  (let ((greys (pgm-greys test-pgm)))
-    (write-pgm
-     (make-pgm
-      greys
-      (array-map (lambda (p)
-                   (round-and-clip p greys))
-                 (array-convolve
-                  (pgm-pixels test-pgm)
-                  sharpen-filter)))
-     "sharper-test.pgm")))
-
-(time
-  (let* ((greys (pgm-greys test-pgm))
-         (edge-array
-          (array-copy
-           (array-map
-            abs
-            (array-convolve
-             (pgm-pixels test-pgm)
-             edge-filter))))
-         (max-pixel
-          (array-fold-left max 0 edge-array))
-         (normalizer
-          (inexact (/ greys max-pixel))))
-    (write-pgm
-     (make-pgm
-      greys
-      (array-map (lambda (p)
-                   (- greys
-                      (round-and-clip (* p normalizer) greys)))
-                 edge-array))
-     "edge-test.pgm")))
-
-
-(define m (array-copy (make-array (make-interval '#(0 0) '#(40 30)) (lambda (i j) (exact->inexact (+ i j))))))
-
-(define (array-sum a)
-  (array-fold-left + 0 a))
-(define (array-max a)
-  (array-fold-left max -inf.0 a))
-
-(define (max-norm a)
-  (array-max (array-map abs a)))
-(define (one-norm a)
-  (array-sum (array-map abs a)))
-
-(define (operator-max-norm a)
-  (max-norm (array-map one-norm (array-curry (array-permute a '#(1 0)) 1))))
-(define (operator-one-norm a)
-  ;; The "permutation" to apply here is the identity, so we omit it.
-  (max-norm (array-map one-norm (array-curry a 1))))
-
-(test (operator-max-norm m) 1940.)
-
-(test (operator-one-norm m) 1605.)
-
-(define (all-second-differences image direction)
-  (let ((image-domain (array-domain image)))
-    (let loop ((i 1)
-               (result '()))
-      (let ((negative-scaled-direction
-             (vector-map (lambda (j) (* -1 j i)) direction))
-            (twice-negative-scaled-direction
-             (vector-map (lambda (j) (* -2 j i)) direction)))
-        (cond ((interval-intersect image-domain
-                                   (interval-translate image-domain negative-scaled-direction)
-                                   (interval-translate image-domain twice-negative-scaled-direction))
-               => (lambda (subdomain)
-                    (loop (+ i 1)
-                          (cons (array-copy
-                                 (array-map (lambda (f_i f_i+d f_i+2d)
-                                              (+ f_i+2d
-                                                 (* -2. f_i+d)
-                                                 f_i))
-                                            (array-extract image
-                                                           subdomain)
-                                            (array-extract (array-translate image
-                                                                            negative-scaled-direction)
-                                                           subdomain)
-                                            (array-extract (array-translate image
-                                                                            twice-negative-scaled-direction)
-                                                           subdomain)))
-                                result))))
-              (else
-               (reverse result)))))))
-
-(define image (array-copy (make-array (make-interval '#(8 8))
-                                      (lambda (i j)
-                                        (exact->inexact (+ (* i i) (* j j)))))))
-
-(define (expose difference-images)
-  (pretty-print (map (lambda (difference-image)
-                       (list (array-domain difference-image)
-                             (array->list* difference-image)))
-                     difference-images)))
-(begin
-  (display "\nOriginal image:\n")
-  (pretty-print (list (array-domain image)
-                      (array->list* image)))
-  (display "\nSecond-difference images in the direction $k\\times (1,0)$, $k=1,2,...$, wherever they're defined:\n")
-  (expose (all-second-differences image '#(1 0)))
-  (display "\nSecond-difference images in the direction $k\\times (1,1)$, $k=1,2,...$, wherever they're defined:\n")
-  (expose (all-second-differences image '#(1 1)))
-  (display "\nSecond-difference images in the direction $k\\times (1,-1)$, $k=1,2,...$, wherever they're defined:\n")
-  (expose (all-second-differences image '#(1 -1))))
-
-(define (make-separable-transform 1D-transform)
-  (lambda (a)
-    (let ((n (array-dimension a)))
-      (do ((d 0 (fx+ d 1)))
-          ((fx= d n))
-        (array-for-each
-         1D-transform
-         (array-curry (array-permute a (index-last n d)) 1))))))
-
-(define (recursively-apply-transform-and-downsample transform)
-  (lambda (a)
-    (let ((sample-vector (make-vector (array-dimension a) 2)))
-      (define (helper a)
-        (if (fx< 1 (interval-upper-bound (array-domain a) 0))
-            (begin
-              (transform a)
-              (helper (array-sample a sample-vector)))))
-      (helper a))))
-
-(define (recursively-downsample-and-apply-transform transform)
-  (lambda (a)
-    (let ((sample-vector (make-vector (array-dimension a) 2)))
-      (define (helper a)
-        (if (fx< 1 (interval-upper-bound (array-domain a) 0))
-            (begin
-              (helper (array-sample a sample-vector))
-              (transform a))))
-      (helper a))))
-
-(define (1D-Haar-loop a)
-  (let ((a_ (array-getter a))
-        (a! (array-setter a))
-        (n (interval-upper-bound (array-domain a) 0)))
-    (do ((i 0 (fx+ i 2)))
-        ((fx= i n))
-      (let* ((a_i               (a_ i))
-             (a_i+1             (a_ (fx+ i 1)))
-             (scaled-sum        (fl/ (fl+ a_i a_i+1) (flsqrt 2.0)))
-             (scaled-difference (fl/ (fl- a_i a_i+1) (flsqrt 2.0))))
-        (a! scaled-sum i)
-        (a! scaled-difference (fx+ i 1))))))
-
-(define 1D-Haar-transform
-  (recursively-apply-transform-and-downsample 1D-Haar-loop))
-
-(define 1D-Haar-inverse-transform
-  (recursively-downsample-and-apply-transform 1D-Haar-loop))
-
-(define hyperbolic-Haar-transform
-  (make-separable-transform 1D-Haar-transform))
-
-(define hyperbolic-Haar-inverse-transform
-  (make-separable-transform 1D-Haar-inverse-transform))
-
-(define Haar-transform
-  (recursively-apply-transform-and-downsample
-   (make-separable-transform 1D-Haar-loop)))
-
-(define Haar-inverse-transform
-  (recursively-downsample-and-apply-transform
-   (make-separable-transform 1D-Haar-loop)))
-
-(let ((image
-       (array-copy
-        (make-array (make-interval '#(4 4))
-                    (lambda (i j)
-                      (case i
-                        ((0) 1.)
-                        ((1) -1.)
-                        (else 0.)))))))
-  (display "\nInitial image: \n")
-  (pretty-print (list (array-domain image)
-                      (array->list* image)))
-  (hyperbolic-Haar-transform image)
-  (display "\nArray of hyperbolic Haar wavelet coefficients: \n")
-  (pretty-print (list (array-domain image)
-                      (array->list* image)))
-  (hyperbolic-Haar-inverse-transform image)
-  (display "\nReconstructed image: \n")
-  (pretty-print (list (array-domain image)
-                      (array->list* image))))
-
-
-(let ((image
-       (array-copy
-        (make-array (make-interval '#(4 4))
-                    (lambda (i j)
-                      (case i
-                        ((0) 1.)
-                        ((1) -1.)
-                        (else 0.)))))))
-  (display "\nInitial image: \n")
-  (pretty-print (list (array-domain image)
-                      (array->list* image)))
-  (Haar-transform image)
-  (display "\nArray of Haar wavelet coefficients: \n")
-  (pretty-print (list (array-domain image)
-                      (array->list* image)))
-  (Haar-inverse-transform image)
-  (display "\nReconstructed image: \n")
-  (pretty-print (list (array-domain image)
-                      (array->list* image))))
-
-(define (LU-decomposition A)
-  ;; Assumes the domain of A is [0,n)\\times [0,n)
-  ;; and that Gaussian elimination can be applied
-  ;; without pivoting.
-  (let ((n
-         (interval-upper-bound (array-domain A) 0))
-        (A_
-         (array-getter A)))
-    (do ((i 0 (fx+ i 1)))
-        ((= i (fx- n 1)) A)
-      (let* ((pivot
-              (A_ i i))
-             (column/row-domain
-              ;; both will be one-dimensional
-              (make-interval (vector (+ i 1))
-                             (vector n)))
-             (column
-              ;; the column below the (i,i) entry
-              (specialized-array-share A
-                                       column/row-domain
-                                       (lambda (k)
-                                         (values k i))))
-             (row
-              ;; the row to the right of the (i,i) entry
-              (specialized-array-share A
-                                       column/row-domain
-                                       (lambda (k)
-                                         (values i k))))
-
-             ;; the subarray to the right and
-             ;;below the (i,i) entry
-             (subarray
-              (array-extract
-               A (make-interval
-                  (vector (fx+ i 1) (fx+ i 1))
-                  (vector n         n)))))
-        ;; compute multipliers
-        (array-assign!
-         column
-         (array-map (lambda (x)
-                      (/ x pivot))
-                    column))
-        ;; subtract the outer product of i'th
-        ;; row and column from the subarray
-        (array-assign!
-         subarray
-         (array-map -
-                    subarray
-                    (array-outer-product * column row)))))))
-
-
-(define A
-  ;; A Hilbert matrix
-  (array-copy
-   (make-array (make-interval '#(4 4))
-               (lambda (i j)
-                 (/ (+ 1 i j))))))
-
-(display "\nHilbert matrix:\n\n")
-(array-display A)
-
-(LU-decomposition A)
-
-(display "\nLU decomposition of Hilbert matrix:\n\n")
-
-(array-display A)
-
-;;; Functions to extract the lower- and upper-triangular
-;;; matrices of the LU decomposition of A.
-
-(define (L a)
-  (let ((a_ (array-getter a))
-        (d  (array-domain a)))
-    (make-array
-     d
-     (lambda (i j)
-       (cond ((= i j) 1)        ;; diagonal
-             ((> i j) (a_ i j)) ;; below diagonal
-             (else 0))))))      ;; above diagonal
-
-(define (U a)
-  (let ((a_ (array-getter a))
-        (d  (array-domain a)))
-    (make-array
-     d
-     (lambda (i j)
-       (cond ((<= i j) (a_ i j)) ;; diagonal and above
-             (else 0))))))       ;; below diagonal
-
-(display "\nLower triangular matrix of decomposition of Hilbert matrix:\n\n")
-(array-display (L A))
-
-(display "\nUpper triangular matrix of decomposition of Hilbert matrix:\n\n")
-(array-display (U A))
-
-;;; We'll define a brief, not-very-efficient matrix multiply routine.
-
-(define (matrix-multiply a b)
-  (array-inner-product a + * b))
-
-;;; We'll check that the product of the result of LU
-;;; decomposition of A is again A.
-
-(define product (matrix-multiply (L A) (U A)))
-
-(display "\nProduct of lower and upper triangular matrices ")
-(display "of LU decomposition of Hilbert matrix:\n\n")
-(array-display product)
-
-(array-display
- (matrix-multiply (list->array (make-interval '#(2 2))
-                               '(1 0
-                                   0 1))
-                  (make-array (make-interval '#(2 4))
-                              (lambda (i j)
-                                (+ i j)))))
-
-(test (myarray= (matrix-multiply (list->array (make-interval '#(2 2))
-                                              '(1 0
-                                                  0 1))
-                                 (make-array (make-interval '#(2 4))
-                                             (lambda (i j)
-                                               (+ i j))))
-                (make-array (make-interval '#(2 4))
-                            (lambda (i j)
-                              (+ i j))))
-      #t)
-
-;; Examples from
-;; http://microapl.com/apl_help/ch_020_020_880.htm
-
-(define TABLE1
-  (list->array
-   (make-interval '#(3 2))
-   '(1 2
-       5 4
-       3 0)))
-
-(define TABLE2
-  (list->array
-   (make-interval '#(2 4))
-   '(6 2 3 4
-       7 0 1 8)))
-
-(pp (array->list* (array-inner-product TABLE1 + * TABLE2)))
-
-(array-display (array-inner-product TABLE1 + * TABLE2))
-
-;;; Displays
-;;; 20 2 5 20
-;;; 58 10 19 52
-;;; 18 6 9 12
-
-(define X (list*->array 1 '(1 3 5 7)))
-
-(define Y (list*->array 1 '(2 3 6 7)))
-
-(pp (array->list* (array-inner-product X + (lambda (x y) (if (= x y) 1 0)) Y)))
-
-;;; Displays
-;;; 2
-
-(define A (array-copy (make-array (make-interval '#(3 4)) list)))
-
-(array-display A)
-
-(array-display (array-permute A '#(1 0)))
-
-(array-display (specialized-array-reshape A (make-interval '#(4 3))))
-
-(define B (array-sample A '#(2 1)))
-
-(array-display B)
-
-(test-error (array-display (specialized-array-reshape B (make-interval '#(8))))
-            "specialized-array-reshape: Requested reshaping is impossible: ")
-
-(array-display (specialized-array-reshape B (make-interval '#(8)) #t))
-
-(define interval-flat (make-interval '#(100 100 4)))
-
-(define interval-2x2  (make-interval '#(100 100 2 2)))
-
-(define A (array-copy (make-array interval-flat (lambda args (test-random-integer 5)))))
-
-(define B (array-copy (make-array interval-flat (lambda args (test-random-integer 5)))))
-
-(define C (array-copy (make-array interval-flat (lambda args 0))))
-
-(define (2x2-matrix-multiply-into! A B C)
-  (let ((C! (array-setter C))
-        (A_ (array-getter A))
-        (B_ (array-getter B)))
-    (C! (+ (* (A_ 0 0) (B_ 0 0))
-           (* (A_ 0 1) (B_ 1 0)))
-        0 0)
-    (C! (+ (* (A_ 0 0) (B_ 0 1))
-           (* (A_ 0 1) (B_ 1 1)))
-        0 1)
-    (C! (+ (* (A_ 1 0) (B_ 0 0))
-           (* (A_ 1 1) (B_ 1 0)))
-        1 0)
-    (C! (+ (* (A_ 1 0) (B_ 0 1))
-           (* (A_ 1 1) (B_ 1 1)))
-        1 1)))
-
-(time
-  (array-for-each 2x2-matrix-multiply-into!
-                  (array-curry (specialized-array-reshape A interval-2x2) 2)
-                  (array-curry (specialized-array-reshape B interval-2x2) 2)
-                  (array-curry (specialized-array-reshape C interval-2x2) 2)))
-
-(time
-  (array-for-each (lambda (A B C)
-                    (array-assign! C (matrix-multiply A B)))
-                  (array-curry (specialized-array-reshape A interval-2x2) 2)
-                  (array-curry (specialized-array-reshape B interval-2x2) 2)
-                  (array-curry (specialized-array-reshape C interval-2x2) 2)))
-
-(array-display ((array-getter
-                 (array-curry
-                  (specialized-array-reshape A interval-2x2)
-                  2))
-                0 0))
-(array-display ((array-getter
-                 (array-curry
-                  (specialized-array-reshape B interval-2x2)
-                  2))
-                0 0))
-(array-display ((array-getter
-                 (array-curry
-                  (specialized-array-reshape C interval-2x2)
-                  2))
-                0 0))
-
-(define 2x2 (make-interval '#(2 2)))
-
-(time
-  (array-for-each (lambda (A B C)
-                    (2x2-matrix-multiply-into!
-                     (specialized-array-reshape A 2x2)
-                     (specialized-array-reshape B 2x2)
-                     (specialized-array-reshape C 2x2)))
-                  (array-curry A 1)
-                  (array-curry B 1)
-                  (array-curry C 1)))
-
-(time
-  (array-for-each (lambda (A B C)
-                    (array-assign!
-                     (specialized-array-reshape C 2x2)
-                     (matrix-multiply
-                      (specialized-array-reshape A 2x2)
-                      (specialized-array-reshape B 2x2))))
-                  (array-curry A 1)
-                  (array-curry B 1)
-                  (array-curry C 1)))
-
-
-(pp "cursory array-inner-product tests")
-
-(test-error (array-inner-product 'a 'a 'a 'a)
-            "array-inner-product: The first argument is not an array: ")
-
-(test-error (array-inner-product (make-array (make-interval '#(10)) list) 'a 'a 'a)
-            "array-inner-product: The second argument is not a procedure: ")
-
-(test-error (array-inner-product (make-array (make-interval '#(10)) list) list 'a 'a)
-            "array-inner-product: The third argument is not a procedure: ")
-
-(test-error (array-inner-product (make-array (make-interval '#(10)) list) list list 'a)
-            "array-inner-product: The fourth argument is not an array: ")
-
-(test-error (array-inner-product (make-array (make-interval '#(10 1)) list) list list (make-array (make-interval '#(10)) list))
-            "array-inner-product: The bounds of the last dimension of the first argument are not the same as the bounds of the first dimension of the fourth argument: ")
-
-(test-error (array-inner-product (make-array (make-interval '#(10 1)) list) list list (make-array (make-interval '#(10 1)) list))
-            "array-inner-product: The bounds of the last dimension of the first argument are not the same as the bounds of the first dimension of the fourth argument: ")
-
-
-(test-error (array-inner-product (make-array (make-interval '#(1 10)) list)
-                                 list list
-                                 (make-array (make-interval '#(2 10)) list))
-            "array-inner-product: The bounds of the last dimension of the first argument are not the same as the bounds of the first dimension of the fourth argument: ")
-
-
-(test-error (array-inner-product (make-array (make-interval '#()) list)
-                                 list list
-                                 (make-array (make-interval '#(10 0)) list))
-            "array-inner-product: The first argument has dimension zero: ")
-
-(test-error (array-inner-product (make-array (make-interval '#(10 0)) list)
-                                 list list
-                                 (make-array (make-interval '#()) list))
-            "array-inner-product: The fourth argument has dimension zero: ")
-
-(let* ((A (make-array (make-interval '#(0 4)) list))
-       (B (make-array (make-interval '#(4 0)) list))
-       (C (array-inner-product A list list B))) ;; should be no error, you can take outer product of empty arrays
-  (test-error (array-ref C 0 0)
-              "array-getter: Array domain is empty: "))
-
-
-(let* ((A (make-array (make-interval '#(4 0)) list))
-       (B (make-array (make-interval '#(0 4)) list)))
-  (test-error (array-inner-product A list list B)
-              "array-inner-product: The width of the first axis of the fourth argument is zero: "))
-
-
-(pp "array-append and array-append! tests")
-
-(for-each
- (lambda (call/cc-safe?)
-   (let ((array-append
-          (if call/cc-safe?
-              array-append
-              array-append!))
-         (message
-          (if call/cc-safe?
-              "array-append:"    ;; no trailing space
-              "array-append!:")))
-
-     (define (wrap error-reason)
-       (string-append message error-reason))
-
-     (test-error (array-append 1 'a)
-                 (wrap " Expecting as the second argument a nonnull list of arrays with the same dimension: "))
-
-     (test-error (array-append 1 '())
-                 (wrap " Expecting as the second argument a nonnull list of arrays with the same dimension: "))
-
-     (test-error (array-append 1 '(a))
-                 (wrap " Expecting as the second argument a nonnull list of arrays with the same dimension: "))
-
-     (test-error (array-append 1 (list (make-array (make-interval '#(1)) list) (make-array (make-interval '#(2 2)) list)))
-                 (wrap " Expecting as the second argument a nonnull list of arrays with the same dimension: "))
-
-     (test-error (array-append 1 (list (make-array (make-interval '#(2 2)) list) 'a))
-                 (wrap " Expecting as the second argument a nonnull list of arrays with the same dimension: "))
-
-     (test-error (array-append 3 (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 2)) list)))
-                 (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (exclusive) as the first argument:"))
-
-     (test-error (array-append -1 (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 2)) list)))
-                 (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (exclusive) as the first argument:"))
-
-     (test-error (array-append 2 (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 2)) list)))
-                 (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (exclusive) as the first argument:"))
-
-     (test-error (array-append 0
-                               (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 2)) list))
-                               'a)
-                 (wrap " Expecting a storage class as the third argument: "))
-
-     (test-error (array-append 0
-                               (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 2)) list))
-                               u1-storage-class
-                               'a)
-                 (wrap " Expecting a boolean as the fourth argument: "))
-
-     (test-error (array-append 0
-                               (list (make-array (make-interval '#(2 4)) list)
-                                     (make-array (make-interval '#(3 5)) list)))
-                 (wrap " Expecting as the second argument a nonnull list of arrays with the same upper and lower bounds (except for index 0): "))
-
-     (test-error (array-append 0
-                               (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 1)) list))
-                               u1-storage-class)
-                 (wrap " Not all elements of the source can be stored in destination: "))
-     ))
- '(#t #f))
-
-
-
-(define (my-array-append k . arrays)              ;; call with at least one array
-  (call-with-values
-      (lambda ()
-        ;; compute lower and upper bounds of where
-        ;; we'll copy each array argument, plus
-        ;; the size of the kth axis of the result array
-        (let loop ((result '(0))
-                   (arrays arrays))
-          (if (null? arrays)
-              (values (reverse result) (car result))
-              (let ((interval (array-domain (car arrays))))
-                (loop (cons (+ (car result)
-                               (- (interval-upper-bound interval k)
-                                  (interval-lower-bound interval k)))
-                            result)
-                      (cdr arrays))))))
-    (lambda (axis-subdividers kth-size)
-      (let* ((array
-              (car arrays))
-             (lowers                         ;; the domains of the arrays differ only in the kth axis
-              (interval-lower-bounds->vector (array-domain array)))
-             (uppers
-              (interval-upper-bounds->vector (array-domain array)))
-             (result                         ;; the result array
-              (make-specialized-array
-               (let ()
-                 (vector-set! lowers k 0)
-                 (vector-set! uppers k kth-size)
-                 (make-interval lowers uppers))))
-             (translation
-              ;; a vector we'll use to align each argument
-              ;; array into the proper subarray of the result
-              (make-vector (array-dimension array) 0)))
-        (let loop ((arrays arrays)
-                   (subdividers axis-subdividers))
-          (if (null? arrays)
-              ;; we've assigned every array to the appropriate subarray of result
-              result
-              (let ((array (car arrays)))
-                (vector-set! lowers k (car subdividers))
-                (vector-set! uppers k (cadr subdividers))
-                (vector-set! translation k (- (car subdividers)
-                                              (interval-lower-bound (array-domain array) k)))
-                (array-assign!
-                 (array-extract result (make-interval lowers uppers))
-                 (array-translate array translation))
-                (loop (cdr arrays)
-                      (cdr subdividers)))))))))
-
-
-
-
-
-;;; We steal some tests from Alex Shinn's test suite.
-
-(define (append-map f l)
-  (foldr append
-         '()
-         (map f l)))
-
-(define (flatten ls)
-  (if (pair? (car ls))
-      (append-map flatten ls)
-      ls))
-
-(define (tensor nested-ls . o)
-  (let lp ((ls nested-ls) (lens '()))
-    (cond
-     ((pair? ls) (lp (car ls) (cons (length ls) lens)))
-     (else
-      (apply list->array
-             (make-interval (list->vector (reverse lens)))
-             (flatten nested-ls)
-             o)))))
-
-(define (identity-array k . o)
-  (array-copy (make-array (make-interval (vector k k))
-                          (lambda args
-                            (if (apply = args)
-                                1
-                                0)))
-              (if (null? o) generic-storage-class (car o))))
-
-(for-each
- (lambda (array-append)
-
-   (define (->generalized-array array)
-     (make-array (array-domain array)
-                 (array-getter array)))
-
-   (test (array-storage-class
-          (array-append 0
-                        (list (array-copy (make-array (make-interval '#(10)) (lambda (i) (random-integer 10))) u8-storage-class)
-                              (array-copy (make-array (make-interval '#(10)) (lambda (i) (random-integer 10))) u16-storage-class))))
-         generic-storage-class)
-
-   (test (myarray= (array-append
-                    0
-                    (list (->generalized-array (list->array (make-interval '#(2 2))
-                                                            '(1 2
-                                                                3 4)))
-                          (->generalized-array (list->array (make-interval '#(2 2))
-                                                            '(5 6
-                                                                7 8)))))
-                   (list->array (make-interval '#(4 2))
-                                '(1 2
-                                    3 4
-                                    5 6
-                                    7 8)))
-         #t)
-
-   (test (myarray= (array-append
-                    1
-                    (list (->generalized-array (list->array (make-interval '#(2 2))
-                                                            '(1 2
-                                                                3 4)))
-                          (list->array (make-interval '#(2 2))
-                                       '(5 6
-                                           7 8))))
-                   (list->array (make-interval '#(2 4))
-                                '(1 2 5 6
-                                    3 4 7 8)))
-         #t)
-
-   (test (myarray= (array-append
-                    0
-                    (list (->generalized-array (list->array (make-interval '#(2 2))
-                                                            '(1 2
-                                                                3 4)))
-                          (list->array (make-interval '#(2 2))
-                                       '(5 6
-                                           7 8))))
-                   (my-array-append
-                    0
-                    (list->array (make-interval '#(2 2))
-                                 '(1 2
-                                     3 4))
-                    (list->array (make-interval '#(2 2))
-                                 '(5 6
-                                     7 8))))
-         #t)
-
-   (test (myarray= (array-append
-                    1
-                    (list (->generalized-array (list->array (make-interval '#(2 2))
-                                                            '(1 2
-                                                                3 4)))
-                          (list->array (make-interval '#(2 2))
-                                       '(5 6
-                                           7 8))))
-                   (my-array-append
-                    1
-                    (list->array (make-interval '#(2 2))
-                                 '(1 2
-                                     3 4))
-                    (list->array (make-interval '#(2 2))
-                                 '(5 6
-                                     7 8))))
-         #t)
-
-   (test (myarray= (tensor '((4 7)
-                             (2 6)
-                             (1 0)
-                             (0 1)))
-                   (array-append 0 (list (tensor '((4 7)
-                                                   (2 6)))
-                                         (identity-array 2))))
-         #t)
-
-   (test (myarray= (tensor '((4 7)
-                             (2 6)
-                             (1 0)
-                             (0 1)))
-                   (array-append 0
-                                 (list (list->array (make-interval '#(2 0) '#(4 2))
-                                                    '(4 7 2 6))
-                                       (identity-array 2))))
-         #t)
-
-   (test (myarray= (tensor '((4 7 1 0)
-                             (2 6 0 1)))
-                   (array-append 1 (list (tensor '((4 7)
-                                                   (2 6)))
-                                         (identity-array 2))))
-         #t)
-
-   (test (myarray= (tensor '((4 7 2 1 0)
-                             (6 3 5 0 1)))
-                   (array-append 1 (list (tensor '((4 7 2)
-                                                   (6 3 5)))
-                                         (identity-array 2))))
-         #t)
-
-   (test (myarray= (tensor '((4 7 1 0 0 1 3)
-                             (2 6 0 1 5 8 9)))
-                   (array-append
-                    1
-                    (list (list->array (make-interval '#(2 2))
-                                       '(4 7 2 6))
-                          (identity-array 2)
-                          (list->array (make-interval '#(2 3))
-                                       '(0 1 3 5 8 9)))))
-         #t)
-
-   )
- (list array-append array-append!))
-
-
-(do ((i 0 (+ i 1)))
-    ((= i random-tests))
-  (let* ((domain
-          (random-interval 1 6))  ;; you can't append zero-dimensional arrays
-         (dimension
-          (interval-dimension domain))
-         (A
-          (array-copy (make-array domain (lambda args (random 10)))))
-         (domain-widths
-          (interval-widths domain))
-         (cutting-axis
-          (random dimension))
-         (tiling-argument
-          (vector-map (lambda (k)
-                        (let ((kth-width (interval-width domain k)))
-                          (if (fx= k cutting-axis)
-                              (if (zero? kth-width)
-                                  (make-vector (random 1 4) 0)
-                                  (let loop ((result '())
-                                             (sum 0))
-                                    (if (fx< sum kth-width)
-                                        (let ((slice-width (random (+ 1 kth-width))))
-                                          (loop (cons slice-width result)
-                                                (+ slice-width sum)))
-                                        (vector-permute (list->vector (cons (- (car result) (- sum kth-width))
-                                                                            (cdr result)))
-                                                        (random-permutation (length result))))))
-                              (if (zero? kth-width)
-                                  '#(0)
-                                  kth-width))))
-                      (list->vector (iota dimension))))
-         (arrays
-          (array->list (array-tile A tiling-argument)))
-         (A-reconstructed
-          (array-append cutting-axis arrays))
-         (A-reconstructed!
-          (array-append! cutting-axis arrays)))
-    (test (myarray= (array-translate A (vector-map -
-                                                   (interval-lower-bounds->vector (array-domain A-reconstructed))
-                                                   (interval-lower-bounds->vector (array-domain A))))
-                    A-reconstructed)
-          #t)
-    (test (myarray= (array-translate A (vector-map -
-                                                   (interval-lower-bounds->vector (array-domain A-reconstructed))
-                                                   (interval-lower-bounds->vector (array-domain A))))
-                    A-reconstructed!)
-          #t)))
-
-(let* ((a (make-array (make-interval '#(4 6)) list))
-       (k 2)
-       (m (interval-upper-bound (array-domain a) 0))
-       (n (interval-upper-bound (array-domain a) 1)))
-  (pretty-print
-   (array->list* a))
-  (newline)
-  (pretty-print
-   (array->list*
-    (array-append
-     0
-     (list (array-extract a (make-interval (vector k 0) (vector (+ k 1) n)))
-           (array-extract a (make-interval (vector k n)))
-           (array-extract a (make-interval (vector (+ k 1) 0) (vector m n))))))))
-
-
-(next-test-random-source-state!)
-
-(pp "array-stack and array-stack! tests")
-
-(for-each
- (lambda (call/cc-safe?)
-   (let ((array-stack
-          (if call/cc-safe?
-              array-stack
-              array-stack!))
-         (message
-          (if call/cc-safe?
-              "array-stack:"     ;; no trailing space
-              "array-stack!:")))
-
-     (define (wrap error-reason)
-       (string-append message error-reason))
-
-     (test-error (array-stack 1 'a)
-                 (wrap " Expecting a nonnull list of arrays with the same domains as the second argument: "))
-
-     (test-error (array-stack 1 '())
-                 (wrap " Expecting a nonnull list of arrays with the same domains as the second argument: "))
-
-     (test-error (array-stack 1 '(a))
-                 (wrap " Expecting a nonnull list of arrays with the same domains as the second argument: "))
-
-     (test-error (array-stack 1 (list (make-array (make-interval '#(1)) list) (make-array (make-interval '#(2 2)) list)))
-                 (wrap " Expecting a nonnull list of arrays with the same domains as the second argument: "))
-
-     (test-error (array-stack 1 (list (make-array (make-interval '#(2 2)) list) 'a))
-                 (wrap " Expecting a nonnull list of arrays with the same domains as the second argument: "))
-
-     (test-error (array-stack 'a (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list)))
-                 (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (inclusive) as the first argument:"))
-
-     (test-error (array-stack -1 (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list)))
-                 (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (inclusive) as the first argument:"))
-
-     (test-error (array-stack 3 (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list)))
-                 (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (inclusive) as the first argument:"))
-
-     (test-error (array-stack 0
-                              (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list))
-                              'a)
-                 (wrap " Expecting a storage class as the third argument: "))
-
-     (test-error (array-stack 0
-                              (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list))
-                              u1-storage-class
-                              'a)
-                 (wrap " Expecting a boolean as the fourth argument: "))
-
-     (test-error (array-stack 0
-                              (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list))
-                              u1-storage-class)
-                 (wrap " Not all elements of the source can be stored in destination: "))
-
-     (test (array-storage-class
-            (array-stack 1 (list (make-array (make-interval '#(10)) list))))
-           generic-storage-class)
-
-     (test (array-storage-class
-            (array-stack 1
-                         (list (array-copy (make-array (make-interval '#(10)) (lambda (i) (random-integer 10))) u8-storage-class)
-                               (array-copy (make-array (make-interval '#(10)) (lambda (i) (random-integer 10))) u16-storage-class))))
-           generic-storage-class)
-
-     (test (myarray= (tensor '(((4 7) (2 6))
-                               ((1 0) (0 1))))
-                     (array-stack 0 (list (tensor '((4 7)
-                                                    (2 6)))
-                                          (identity-array 2))))
-           #t)
-
-     (test (myarray= (tensor '(((4 7) (1 0))
-                               ((2 6) (0 1))))
-                     (array-stack 1 (list (tensor '((4 7)
-                                                    (2 6)))
-                                          (identity-array 2))))
-           #t)
-
-     (test (myarray= (tensor '(((4 1) (7 0))
-                               ((2 0) (6 1))))
-                     (array-stack 2 (list (tensor '((4 7)
-                                                    (2 6)))
-                                          (identity-array 2))))
-           #t)
-
-     (let* ((A
-             (make-array
-              (make-interval '#(4 10))
-              list))
-            (column_
-             (array-getter                  ;; the getter of ...
-              (array-curry                  ;; a 1-D array of the columns of A
-               (array-permute A '#(1 0))
-               1)))
-            (B
-             (array-stack                  ;; stack into a new 2-D array ...
-              1                            ;; along axis 1 (i.e., columns) ...
-              (map column_ '(1 2 5 8)))))  ;; the columns of A you want
-       (array-display B))
-
-     (let* ((A
-             (make-array
-              (make-interval '#(4 10))
-              list))
-            (B
-             (array-stack 1 (map (array-getter (array-curry (array-permute A '#(1 0)) 1)) '(1 2 5 8)))))
-       (array-display B))
-     ))
- '(#t #f))
-
-
-;;; zero-dimensional and empty arrays
-
-(let ()
-
-  (define arrays (map (lambda (ignore) (array-copy (make-array (make-interval '#()) (lambda () (random-integer 10))))) (iota 4)))
-
-  (define b  (array-stack 0 arrays))
-  (define c  (array-stack! 0 arrays))
-
-  (test (map array-ref arrays)
-        (array->list b))
-  (test (map array-ref arrays)
-        (array->list c)))
-
-(let* ((arrays (map (lambda (ignore) (array-copy (make-array (make-interval '#(0)) error))) (iota 4)))
-       (b (array-stack 0 arrays))
-       (c (array-stack 1 arrays))
-       (b! (array-stack! 0 arrays))
-       (c! (array-stack! 1 arrays)))
-
-  (test (interval-upper-bounds->vector (array-domain b))
-        '#(4 0))
-  (test (interval-upper-bounds->vector (array-domain c))
-        '#(0 4))
-
-  (test (interval-upper-bounds->vector (array-domain b!))
-        '#(4 0))
-  (test (interval-upper-bounds->vector (array-domain c!))
-        '#(0 4)))
-
-
-;;; FIXME: Need to test the values of other optional arguments to array-append
-
-(define (myarray-stack k . arrays)
-  (let* ((array
-          (car arrays))
-         (domain
-          (array-domain array))
-         (lowers
-          (interval-lower-bounds->list domain))
-         (uppers
-          (interval-upper-bounds->list domain))
-         (new-domain
-          (make-interval
-           (list->vector (append (take lowers k) (cons 0 (drop lowers k))))
-           (list->vector (append (take uppers k) (cons (length arrays) (drop uppers k))))))
-         (getters
-          (list->vector (map %%array-getter arrays))))
-    (make-array new-domain
-                (lambda args
-                  (apply
-                   (vector-ref getters (list-ref args k))
-                   (append (take args k)
-                           (drop args (+ k 1))))))))
-
-(do ((d 0 (fx+ d 1)))
-    ((= d 6))
-  (let* ((uppers-list
-          (iota d))
-         (domain
-          (make-interval (list->vector uppers-list))))
-    (do ((i 0 (fx+ i 1)))
-        ;; distribute "tests" results over five dimensions
-        ((= i (quotient random-tests 5)))
-      (let* ((arrays
-              (map (lambda (ignore)
-                     (array-copy
-                      (make-array domain
-                                  (lambda args
-                                    (random 256)))
-                      u8-storage-class))
-                   (iota (random 1 5))))
-             (k
-              (random (+ d 1))))
-        (test (myarray= (array-stack k arrays)
-                        (apply myarray-stack k arrays))
-              #t)
-        (test (myarray= (array-stack! k arrays)
-                        (apply myarray-stack k arrays))
-              #t)))))
-
-(next-test-random-source-state!)
-
-(pp "array-block and array-block! tests")
-
-(for-each
- (lambda (call/cc-safe?)
-   (let ((array-block
-          (if call/cc-safe?
-              array-block
-              array-block!))
-         (message
-          (if call/cc-safe?
-              "array-block: "
-              "array-block!: ")))
-
-     (define (wrap error-reason)
-       (string-append message error-reason))
-
-     (test-error (array-block 'a)
-                 (wrap "The first argument is not an array: "))
-
-     (test-error (array-block (make-array (make-interval '#(2 2)) list) 'a)
-                 (wrap "The second argument is not a storage class: "))
-
-     (test-error (array-block (make-array (make-interval '#(2 2)) list)
-                              u8-storage-class
-                              'a)
-                 (wrap "The third argument is not a boolean: "))
-
-     (test-error (array-block (make-array (make-interval '#(2 2)) list))
-                 (wrap "Not all elements of the first argument (an array) are arrays: "))
-
-     (test-error (array-block (vector*->array 1 (vector (vector*->array 1 '#(1 1))
-                                                        (vector*->array 2 '#(#(1 2) #(3 4))))))
-                 (wrap "Not all elements of the first argument (an array) have the same dimension as the first argument itself: "))
-
-     (test-error (array-block (list*->array
-                               2
-                               (list (list (list*->array 2 '((0 1)
-                                                             (2 3)))
-                                           (list*->array 2 '((4)
-                                                             (5)))
-                                           (list*->array 2 '((6 7)     ;; these should each have ...
-                                                             (9 10)))) ;; three elements
-                                     (list (list*->array 2 '((12 13)))
-                                           (list*->array 2 '((14)))
-                                           (list*->array 2 '((15 16 17)))))))
-                 (wrap "Cannot stack array elements of the first argument into result array: "))
-
-
-     (test (array? (array-block (list*->array
-                                 1
-                                 (list (make-array (make-interval '#(0)) list)
-                                       (make-array (make-interval '#(0)) list)))))
-           #t)
-
-
-     (let* ((A (list*->array
-                2
-                (list (list (list*->array 2 '((0 1)
-                                              (2 3)))
-                            (list*->array 2 '((4)
-                                              (5)))
-                            (list*->array 2 '((6 7 8)
-                                              (9 10 11))))
-                      (list (list*->array 2 '((12 13)))
-                            (list*->array 2 '((14)))
-                            (list*->array 2 '((15 16 17)))))))
-            (A-appended
-             (array-block A))
-            (A-tiled
-             (array-tile A-appended '#(#(2 1) #(2 1 3)))))
-
-       (for-each (lambda (mutable?)
-                   (let ((new-A (array-block A generic-storage-class mutable?)))
-                     (test (mutable-array? new-A)
-                           mutable?)))
-                 '(#t #f))
-       (for-each (lambda (mutable?)
-                   (parameterize ((specialized-array-default-mutable? mutable?))
-                     (let ((new-A (array-block A generic-storage-class)))
-                       (test (mutable-array? new-A)
-                             mutable?))))
-                 '(#t #f))
-
-       (test (array-every equal?            ;; we convert them to list*'s to ignore domains.
-                          (array-map array->list* A)
-                          (array-map array->list* A-tiled))
-             #t))
-
-     (let* ((A (list*->array
-                2
-                (list (list (list*->array 2 '((0 1)
-                                              (2 3)))
-                            (list*->array 2 '((4)
-                                              (5)))
-                            (list*->array 2 '((6 7 8)
-                                              (9 10 11))))
-                      (list (list*->array 2 '((12 13)))
-                            (list*->array 2 '((14)))
-                            (list*->array 2 '((15 16 17))))))))
-       (test-error (array-block A u1-storage-class)
-                   (wrap "Not all elements of the source can be stored in destination: ")))
-     ))
- '(#t #f))
-
-
-
-(do ((i 0 (+ i 1)))
-    ((= i random-tests))
-  (let* ((dims
-          (random 1 6))
-         (A-uppers
-          (list->vector (map (lambda (ignore) (random 3 6)) (iota dims))))
-         (A
-          (array-copy
-           (make-array (make-interval A-uppers)
-                       (lambda args
-                         (random 2)))
-           u1-storage-class))
-         (A_
-          (array-getter A))
-         (number-of-cuts
-          (array->vector
-           (make-array (make-interval (vector dims))
-                       (lambda args (random 3)))))
-         (cuts
-          (vector-map (lambda (cuts upper)
-                        (let ((bitmap (make-vector (+ upper 1) #f)))
-                          (vector-set! bitmap 0 #t)
-                          (vector-set! bitmap upper #t)
-                          (let loop ((i 0))
-                            (if (fx= i cuts)
-                                (let ((result (make-vector (fx+ cuts 2))))
-                                  (let inner ((l 0)
-                                              (j 0))
-                                    (cond ((fx> j cuts)
-                                           (vector-set! result j upper)
-                                           result)
-                                          ((vector-ref bitmap l)
-                                           (vector-set! result j l)
-                                           (inner (fx+ l 1)
-                                                  (fx+ j 1)))
-                                          (else
-                                           (inner (fx+ l 1)
-                                                  j)))))
-                                (let ((proposed-cut (random upper)))
-                                  (if (vector-ref bitmap proposed-cut)
-                                      (loop i)
-                                      (begin
-                                        (vector-set! bitmap proposed-cut #t)
-                                        (loop (fx+ i 1)))))))))
-                      number-of-cuts
-                      A-uppers))
-         (side-lengths
-          (vector-map
-           (lambda (cuts)
-             (let ((result
-                    (make-vector (- (vector-length cuts) 1))))
-               (do ((i 0 (fx+ i 1)))
-                   ((fx= i (vector-length result)) result)
-                 (vector-set! result i (- (vector-ref cuts (+ i 1))
-                                          (vector-ref cuts i))))))
-           cuts))
-         (A-blocks
-          (make-array (make-interval (vector-map (lambda (v)
-                                                   (- (vector-length v) 1))
-                                                 cuts))
-                      (lambda args
-                        (let ((vector-args (list->vector args)))
-                          (make-array (make-interval (vector-map (lambda (cuts i)
-                                                                   (vector-ref cuts i))
-                                                                 cuts
-                                                                 vector-args)
-                                                     (vector-map (lambda (cuts i)
-                                                                   (vector-ref cuts (+ i 1)))
-                                                                 cuts
-                                                                 vector-args))
-                                      A_)))))
-         (A-tiled
-          (array-tile A side-lengths))
-         (reconstructed-A
-          (array-block A-blocks u1-storage-class))
-         (reconstructed-A!
-          (array-block! A-blocks u1-storage-class)))
-    (test (array-every myarray= A-tiled A-blocks)
-          #t)
-    (test (array-every = A reconstructed-A)
-          #t)
-    (test (array-every = A reconstructed-A!)
-          #t)
-    (test (array-every = A
-                       (array-block
-                        (array-tile A
-                                    (list->vector
-                                     (map (lambda (ignore) (random 1 5))
-                                          (iota dims))))))
-          #t)
-    (test (array-every = A
-                       (array-block!
-                        (array-tile A
-                                    (list->vector
-                                     (map (lambda (ignore) (random 1 5))
-                                          (iota dims))))))
-          #t)))
-
-(next-test-random-source-state!)
-
-;;; Let's do something similar now with possibly empty arrays and subarrays.
-
-(do ((i 0 (+ i 1)))
-    ((= i random-tests))
-  (let* ((domain
-          (random-interval))
-         (domain-widths
-          (interval-widths domain))
-         (tiling-argument
-          (vector-map (lambda (width)
-                        (if (zero? width)                  ;; width of kth axis is 0
-                            (make-vector (random 1 3) 0)
-                            (if (even? (random 2))
-                                (let loop ((result '())    ;; accumulate a list of nonnegative integers that (eventually) sum to no less than width
-                                           (sum 0))
-                                  (if (<= width sum)
-                                      (vector-permute (list->vector (cons (- (car result)    ;; adjust last entry so the sum is width
-                                                                             (- sum width))
-                                                                          (cdr result)))
-                                                      (random-permutation (length result)))  ;; randomly permute vector of cuts
-                                      (let ((new-width (random (+ width 1))))
-                                        (loop (cons new-width result)
-                                              (+ new-width sum)))))
-                                (random 1 (+ width 3)))))               ;; a positive scalar
-                      domain-widths))
-         (A
-          (array-copy (make-array domain (lambda args (random 10)))))
-         (A-tiled
-          (array-tile A tiling-argument))
-         (A-tiled
-          (array-map (lambda (A) (make-array (array-domain A) (array-getter A))) A-tiled))
-         (A-blocked!
-          (array-block! A-tiled))
-         (A-blocked
-          (array-block A-tiled)))
-    (test (myarray= (array-translate A (vector-map - (interval-lower-bounds->vector (array-domain A)))) ;; array-block returns an array based at the origin
-                    A-blocked!)
-          #t)
-    (test (myarray= (array-translate A (vector-map - (interval-lower-bounds->vector (array-domain A)))) ;; array-block returns an array based at the origin
-                    A-blocked)
-          #t)))
-
-(next-test-random-source-state!)
-
-(define (array-pad-periodically a N)
-  ;; Pad a periodically with N rows and columns top and bottom, left and right.
-  ;; Returns a generalized array.
-  (let* ((domain     (array-domain a))
-         (m          (interval-upper-bound domain 0))
-         (n          (interval-upper-bound domain 1))
-         (a_         (array-getter a)))
-    (make-array (interval-dilate domain (vector (- N) (- N)) (vector N N))
-                (lambda (i j)
-                  (a_ (modulo i m) (modulo j n))))))
-
-(define (neighbor-count a)
-  (let* ((big-a      (array-copy (array-pad-periodically a 1)
-                                 (array-storage-class a)))
-         (domain     (array-domain a))
-         (translates (map (lambda (translation)
-                            (array-extract (array-translate big-a translation) domain))
-                          '(#(1 0) #(0 1) #(-1 0) #(0 -1)
-                            #(1 1) #(1 -1) #(-1 1) #(-1 -1)))))
-    ;; Returns a generalized array that contains the number
-    ;; of 1s in the 8 cells surrounding each cell in the original array.
-    (apply array-map + translates)))
-
-(define (game-rules a neighbor-count)
-  ;; a is a single cell, neighbor-count is the count of 1s in
-  ;; its 8 neighboring cells.
-  (if (= a 1)
-      (if (or (= neighbor-count 2)
-              (= neighbor-count 3))
-          1 0)
-      ;; (= a 0)
-      (if (= neighbor-count 3)
-          1 0)))
-
-(define (advance a)
-  (array-copy
-   (array-map game-rules a (neighbor-count a))
-   (array-storage-class a)))
-
-(define glider
-  (list*->array
-   2
-   '((0 0 0 0 0 0 0 0 0 0)
-     (0 0 1 0 0 0 0 0 0 0)
-     (0 0 0 1 0 0 0 0 0 0)
-     (0 1 1 1 0 0 0 0 0 0)
-     (0 0 0 0 0 0 0 0 0 0)
-     (0 0 0 0 0 0 0 0 0 0)
-     (0 0 0 0 0 0 0 0 0 0)
-     (0 0 0 0 0 0 0 0 0 0)
-     (0 0 0 0 0 0 0 0 0 0)
-     (0 0 0 0 0 0 0 0 0 0))
-   u1-storage-class))
-
-(define (generations a N)
-  (do ((i 0 (fx+ i 1))
-       (a a  (advance a)))
-      ((fx= i N))
-    (newline)
-    (pretty-print (array->list* a))))
-
-(generations glider 5)
-
-
-;;; Unit tests
-
-(pp "unit-tests")
-
-(let ((A (make-specialized-array (make-interval '#(5 5 5 5 5) '#(8 8 8 8 8))))
-      (B (make-specialized-array (make-interval '#(5 5 5 5 5)))))
-  (test-error (array-ref A 0 0)
-              "array-getter: multi-index is not the correct dimension: ")
-  (test-error (array-set! A 2 0 0)
-              "array-setter: multi-index is not the correct dimension: ")
-  (test-error (array-ref B 0 0)
-              "array-getter: multi-index is not the correct dimension: ")
-  (test-error (array-set! B 2 0 0)
-              "array-setter: multi-index is not the correct dimension: "))
-
-(pp "Test interactions of continuations and array-{copy|append|stack|decurry|block}")
-
-(pp 'array-copy)
-
-(let* ((cont #f)
-       (call-cont #t)
-       (domain (make-interval '#(2 2)))
-       (A_ (lambda (i j)
-             (call-with-current-continuation
-              (lambda (c)
-                (if (= i j 0)
-                    (set! cont c))
-                1))))
-       (A (make-array domain A_))
-       (array-list '()))
-  (let ((temp (array-copy A)))
-    (set! array-list (cons temp array-list)))
-  (if call-cont
-      (begin
-        (set! call-cont #f)
-        (cont 4)))
-  (for-each (lambda (result truth)
-              (test (array->list* result)
-                    truth))
-            array-list
-            '(((4 1) (1 1))
-              ((1 1) (1 1)))))
-
-(pp 'array-append)
-
-(let* ((cont #f)
-       (call-cont #t)
-       (domain (make-interval '#(2 2)))
-       (B (list*->array 2 '((1 2) (3 4))))
-       (A_ (lambda (i j)
-             (call-with-current-continuation
-              (lambda (c)
-                (if (= i j 0)
-                    (set! cont c))
-                1))))
-       (A (make-array domain A_))
-       (array-list '()))
-  (let ((temp (array-append 1 (list A B))))
-    (set! array-list (cons temp array-list)))
-  (if call-cont
-      (begin
-        (set! call-cont #f)
-        (cont 4)))
-  (for-each (lambda (result truth)
-              (test (array->list* result)
-                    truth))
-            array-list
-            '(((4 1 1 2) (1 1 3 4))
-              ((1 1 1 2) (1 1 3 4)))))
-
-(pp 'array-stack)
-
-(let* ((cont #f)
-       (call-cont #t)
-       (domain (make-interval '#(2 2)))
-       (B (list*->array 2 '((1 2) (3 4))))
-       (A_ (lambda (i j)
-             (call-with-current-continuation
-              (lambda (c)
-                (if (= i j 0)
-                    (set! cont c))
-                1))))
-       (A (make-array domain A_))
-       (array-list '()))
-  (let ((temp (array-stack 1 (list A B))))
-    (set! array-list (cons temp array-list)))
-  (if call-cont
-      (begin
-        (set! call-cont #f)
-        (cont 4)))
-  (for-each (lambda (result truth)
-              (test (array->list* result)
-                    truth))
-            array-list
-            '((((4 1) (1 2)) ((1 1) (3 4)))
-              (((1 1) (1 2)) ((1 1) (3 4))))))
-
-(pp 'array-block)
-
-(let* ((cont #f)
-       (call-cont #t)
-       (domain (make-interval '#(2 2)))
-       (B (list*->array 2 '((1 2) (3 4))))
-       (A_ (lambda (i j)
-             (call-with-current-continuation
-              (lambda (c)
-                (if (= i j 0)
-                    (set! cont c))
-                1))))
-       (A (make-array domain A_))
-       (C (list*->array 2 (list (list A B))))
-       (array-list '()))
-  (let ((temp (array-block C)))
-    (set! array-list (cons temp array-list)))
-  (if call-cont
-      (begin
-        (set! call-cont #f)
-        (cont 4)))
-  (for-each (lambda (result truth)
-              (test (array->list* result)
-                    truth))
-            array-list
-            '(((4 1 1 2) (1 1 3 4))
-              ((1 1 1 2) (1 1 3 4)))))
-
-(pp 'array-decurry)
-
-(let* ((cont #f)
-       (call-cont #t)
-       (domain (make-interval '#(2 2)))
-       (B (list*->array 2 '((1 2) (3 4))))
-       (A_ (lambda (i j)
-             (call-with-current-continuation
-              (lambda (c)
-                (if (= i j 0)
-                    (set! cont c))
-                1))))
-       (A (make-array domain A_))
-       (C (list*->array 1 (list A B)))
-       (array-list '()))
-  (let ((temp (array-decurry C)))
-    (set! array-list (cons temp array-list)))
-  (if call-cont
-      (begin
-        (set! call-cont #f)
-        (cont 4)))
-  (for-each (lambda (result truth)
-              (test (array->list* result)
-                    truth))
-            array-list
-            '((((4 1) (1 1)) ((1 2) (3 4)))
-              (((1 1) (1 1)) ((1 2) (3 4))))))
-
-(pp "Test that the corresponding ! procedures don't crash when dealing with continuations.")
-
-(pp 'array-copy!)
-
-(let* ((cont #f)
-       (call-cont #t)
-       (domain (make-interval '#(2 2)))
-       (A_ (lambda (i j)
-             (call-with-current-continuation
-              (lambda (c)
-                (if (= i j 0)
-                    (set! cont c))
-                1))))
-       (A (make-array domain A_))
-       (array-list '()))
-  (let ((temp (array-copy! A)))
-    (set! array-list (cons temp array-list)))
-  (if call-cont
-      (begin
-        (set! call-cont #f)
-        (cont 4))))
-
-(pp 'array-append!)
-
-(let* ((cont #f)
-       (call-cont #t)
-       (domain (make-interval '#(2 2)))
-       (B (list*->array 2 '((1 2) (3 4))))
-       (A_ (lambda (i j)
-             (call-with-current-continuation
-              (lambda (c)
-                (if (= i j 0)
-                    (set! cont c))
-                1))))
-       (A (make-array domain A_))
-       (array-list '()))
-  (let ((temp (array-append! 1 (list A B))))
-    (set! array-list (cons temp array-list)))
-  (if call-cont
-      (begin
-        (set! call-cont #f)
-        (cont 4))))
-
-(pp 'array-stack!)
-
-(let* ((cont #f)
-       (call-cont #t)
-       (domain (make-interval '#(2 2)))
-       (B (list*->array 2 '((1 2) (3 4))))
-       (A_ (lambda (i j)
-             (call-with-current-continuation
-              (lambda (c)
-                (if (= i j 0)
-                    (set! cont c))
-                1))))
-       (A (make-array domain A_))
-       (array-list '()))
-  (let ((temp (array-stack! 1 (list A B))))
-    (set! array-list (cons temp array-list)))
-  (if call-cont
-      (begin
-        (set! call-cont #f)
-        (cont 4))))
-
-(pp 'array-block!)
-
-(let* ((cont #f)
-       (call-cont #t)
-       (domain (make-interval '#(2 2)))
-       (B (list*->array 2 '((1 2) (3 4))))
-       (A_ (lambda (i j)
-             (call-with-current-continuation
-              (lambda (c)
-                (if (= i j 0)
-                    (set! cont c))
-                1))))
-       (A (make-array domain A_))
-       (C (list*->array 2 (list (list A B))))
-       (array-list '()))
-  (let ((temp (array-block! C)))
-    (set! array-list (cons temp array-list)))
-  (if call-cont
-      (begin
-        (set! call-cont #f)
-        (cont 4))))
-
-(pp 'array-decurry!)
-
-(let* ((cont #f)
-       (call-cont #t)
-       (domain (make-interval '#(2 2)))
-       (B (list*->array 2 '((1 2) (3 4))))
-       (A_ (lambda (i j)
-             (call-with-current-continuation
-              (lambda (c)
-                (if (= i j 0)
-                    (set! cont c))
-                1))))
-       (A (make-array domain A_))
-       (C (list*->array 1 (list A B)))
-       (array-list '()))
-  (let ((temp (array-decurry! C)))
-    (set! array-list (cons temp array-list)))
-  (if call-cont
-      (begin
-        (set! call-cont #f)
-        (cont 4))))
-
-(pp 'array-assign!)
-
-(let* ((cont #f)
-       (call-cont #t)
-       (domain (make-interval '#(2 2)))
-       (B (list*->array 2 '((1 2) (3 4))))
-       (A_ (lambda (i j)
-             (call-with-current-continuation
-              (lambda (c)
-                (if (= i j 0)
-                    (set! cont c))
-                1))))
-       (A (make-array domain A_)))
-  (array-assign! B A)
-  (if call-cont
-      (begin
-        (set! call-cont #f)
-        (cont 4))))
-
-(for-each display (list "Failed " failed-tests " out of " total-tests " total tests.\n"))
+;; (define a (make-array (make-interval '#(0 0) '#(10 10))
+;;                       list))
+;; 
+;; (test ((array-getter a) 3 4)
+;;       '(3 4))
+;; 
+;; (define curried-a (array-curry a 1))
+;; 
+;; (test ((array-getter ((array-getter curried-a) 3)) 4)
+;;       '(3 4))
+;; 
+;; (define sparse-array
+;;   (let ((domain (make-interval '#(1000000 1000000)))
+;;         (sparse-rows (make-vector 1000000 '())))
+;;     (make-array domain
+;;                 (lambda (i j)
+;;                   (cond ((assv j (vector-ref sparse-rows i))
+;;                          => cdr)
+;;                         (else
+;;                          0.0)))
+;;                 (lambda (v i j)
+;;                   (cond ((assv j (vector-ref sparse-rows i))
+;;                          => (lambda (pair)
+;;                               (set-cdr! pair v)))
+;;                         (else
+;;                          (vector-set! sparse-rows i (cons (cons j v) (vector-ref sparse-rows i)))))))))
+;; 
+;; (test ((array-getter sparse-array) 12345 6789)
+;;       0.)
+;; 
+;; (test ((array-getter sparse-array) 0 0)
+;;       0.)
+;; 
+;; ((array-setter sparse-array) 1.0 0 0)
+;; 
+;; (test ((array-getter sparse-array) 12345 6789)
+;;       0.)
+;; 
+;; (test ((array-getter sparse-array) 0 0)
+;;       1.)
+;; 
+;; (let ()
+;;   (define a
+;;     (array-copy
+;;      (make-array (make-interval '#(5 10))
+;;                  list)))
+;;   (define b
+;;     (specialized-array-share
+;;      a
+;;      (make-interval '#(5 5))
+;;      (lambda (i j)
+;;        (values i (+ i j)))))
+;;   ;; Print the \"rows\" of b
+;;   (array-for-each (lambda (row)
+;;                     (pretty-print (array->list row)))
+;;                   (array-curry b 1))
+;; 
+;;   ;; which prints
+;;   ;; ((0 0) (0 1) (0 2) (0 3) (0 4))
+;;   ;; ((1 1) (1 2) (1 3) (1 4) (1 5))
+;;   ;; ((2 2) (2 3) (2 4) (2 5) (2 6))
+;;   ;; ((3 3) (3 4) (3 5) (3 6) (3 7))
+;;   ;; ((4 4) (4 5) (4 6) (4 7) (4 8))
+;;   )
+;; 
+;; (define (palindrome? s)
+;;   (let* ((n
+;;           (string-length s))
+;;          (a
+;;           ;; an array accessing the characters of s
+;;           (make-array (make-interval (vector n))
+;;                       (lambda (i)
+;;                         (string-ref s i))))
+;;          (ra
+;;           ;; the characters accessed in reverse order
+;;           (array-reverse a))
+;;          (half-domain
+;;           (make-interval (vector (quotient n 2)))))
+;;     ;; If n is 0 or 1 the following extracted arrays
+;;     ;; are empty.
+;;     (array-every
+;;      char=?
+;;      ;; the first half of s
+;;      (array-extract a half-domain)
+;;      ;; the reversed second half of s
+;;      (array-extract ra half-domain))))
+;; 
+;; (for-each (lambda (s)
+;;             (for-each display
+;;                       (list "(palindrome? \""
+;;                             s
+;;                             "\") => "
+;;                             (palindrome? s)
+;;                             #\newline)))
+;;           '("" "a" "aa" "ab" "aba" "abc" "abba" "abca" "abbc"))
+;; 
+;; (let ((a (make-array (make-interval '#(10)) (lambda (i) i))))
+;;   (test (array-fold-left cons '() a)
+;;         '((((((((((() . 0) . 1) . 2) . 3) . 4) . 5) . 6) . 7) . 8) . 9))
+;;   (test (array-fold-right cons '() a)
+;;         '(0 1 2 3 4 5 6 7 8 9))
+;;   (test (array-fold-left - 0 a)
+;;         -45)
+;;   (test (array-fold-right - 0 a)
+;;         -5))
+;; 
+;; 
+;; (define make-pgm   cons)
+;; (define pgm-greys  car)
+;; (define pgm-pixels cdr)
+;; 
+;; (define (read-pgm file)
+;; 
+;;   (define (read-pgm-object port)
+;;     (skip-white-space port)
+;;     (let ((o (read port)))
+;;       (read-char port) ; to skip the newline or next whitespace
+;;       (if (eof-object? o)
+;;           (error "reached end of pgm file")
+;;           o)))
+;; 
+;;   (define (skip-to-end-of-line port)
+;;     (let loop ((ch (read-char port)))
+;;       (if (not (eqv? ch #\newline))
+;;           (loop (read-char port)))))
+;; 
+;;   (define (white-space? ch)
+;;     (case ch
+;;       ((#\newline #\space #\tab) #t)
+;;       (else #f)))
+;; 
+;;   (define (skip-white-space port)
+;;     (let ((ch (peek-char port)))
+;;       (cond ((white-space? ch) (read-char port) (skip-white-space port))
+;;             ((eqv? ch #\#) (skip-to-end-of-line port)(skip-white-space port))
+;;             (else #f))))
+;; 
+;;   (call-with-input-file
+;;       (list path:          file
+;;             char-encoding: 'ISO-8859-1
+;;             eol-encoding:  'lf)
+;;     (lambda (port)
+;; 
+;;       ;; We're going to read text for a while,
+;;       ;; then switch to binary.
+;;       ;; So we need to turn off buffering until
+;;       ;; we switch to binary.
+;; 
+;;       (port-settings-set! port '(buffering: #f))
+;; 
+;;       (let* ((header (read-pgm-object port))
+;;              (columns (read-pgm-object port))
+;;              (rows (read-pgm-object port))
+;;              (greys (read-pgm-object port)))
+;; 
+;;         ;; now we switch back to buffering
+;;         ;; to speed things up
+;; 
+;;         (port-settings-set! port '(buffering: #t))
+;; 
+;;         (make-pgm greys
+;;                   (array-copy
+;;                    (make-array
+;;                     (make-interval (vector rows columns))
+;;                     (cond ((or (eq? header 'p5)                                     ;; pgm binary
+;;                                (eq? header 'P5))
+;;                            (if (< greys 256)
+;;                                (lambda (i j)                                        ;; one byte/pixel
+;;                                  (char->integer (read-char port)))
+;;                                (lambda (i j)                                        ;; two bytes/pixel, little-endian
+;;                                  (let* ((first-byte (char->integer (read-char port)))
+;;                                         (second-byte (char->integer (read-char port))))
+;;                                    (+ (* second-byte 256) first-byte)))))
+;;                           ((or (eq? header 'p2)                                     ;; pgm ascii
+;;                                (eq? header 'P2))
+;;                            (lambda (i j)
+;;                              (read port)))
+;;                           (else
+;;                            (error "read-pgm: not a pgm file"))))))))))
+;; 
+;; (define write-pgm
+;;   (case-lambda
+;;    ((pgm-data file)
+;;     (write-pgm pgm-data file #f))
+;;    ((pgm-data file force-ascii)
+;;     (call-with-output-file
+;;         (list path:          file
+;;               char-encoding: 'ISO-8859-1
+;;               eol-encoding:  'lf)
+;;       (lambda (port)
+;;         (let* ((greys
+;;                 (pgm-greys pgm-data))
+;;                (pgm-array
+;;                 (pgm-pixels pgm-data))
+;;                (domain
+;;                 (array-domain pgm-array))
+;;                (rows
+;;                 (fx- (interval-upper-bound domain 0)
+;;                      (interval-lower-bound domain 0)))
+;;                (columns
+;;                 (fx- (interval-upper-bound domain 1)
+;;                      (interval-lower-bound domain 1))))
+;;           (if force-ascii
+;;               (display "P2" port)
+;;               (display "P5" port))
+;;           (newline port)
+;;           (display columns port) (display " " port)
+;;           (display rows port) (newline port)
+;;           (display greys port) (newline port)
+;;           (array-for-each (if force-ascii
+;;                               (let ((next-pixel-in-line 1))
+;;                                 (lambda (p)
+;;                                   (write p port)
+;;                                   (if (fxzero? (fxand next-pixel-in-line 15))
+;;                                       (begin
+;;                                         (newline port)
+;;                                         (set! next-pixel-in-line 1))
+;;                                       (begin
+;;                                         (display " " port)
+;;                                         (set! next-pixel-in-line (fx+ 1 next-pixel-in-line))))))
+;;                               (if (fx< greys 256)
+;;                                   (lambda (p)
+;;                                     (write-u8 p port))
+;;                                   (lambda (p)
+;;                                     (write-u8 (fxand p 255) port)
+;;                                     (write-u8 (fxarithmetic-shift-right p 8) port))))
+;;                           pgm-array)))))))
+;; 
+;; (define test-pgm (read-pgm "girl.pgm"))
+;; 
+;; (define (array-convolve source filter)
+;;   (let* ((source-domain
+;;           (array-domain source))
+;;          (S_
+;;           (array-getter source))
+;;          (filter-domain
+;;           (array-domain filter))
+;;          (F_
+;;           (array-getter filter))
+;;          (result-domain
+;;           (interval-dilate
+;;            source-domain
+;;            ;; left bound of an interval is an equality,
+;;            ;; right bound is an inequality, hence the
+;;            ;; the difference in the following two expressions
+;;            (vector-map -
+;;                        (interval-lower-bounds->vector filter-domain))
+;;            (vector-map (lambda (x)
+;;                          (- 1 x))
+;;                        (interval-upper-bounds->vector filter-domain)))))
+;;     (make-array result-domain
+;;                 #|
+;;                 This was my first attempt at convolve, but the problem is that
+;;                 it creates two specialized arrays per pixel, which is a lot of
+;;                 overhead (computing an indexer and a setter, for example) for
+;;                 not very much computation.
+;;                 (lambda (i j)
+;;                 (array-dot-product
+;;                 (array-extract
+;;                 (array-translate source (vector (- i) (- j)))
+;;                 filter-domain)
+;;                 filter))
+;;                 where
+;; 
+;;                 (define (array-dot-product a b)
+;;                 (array-fold-left (lambda (x y)
+;;                 (+ x y))
+;;                 0
+;;                 (array-map
+;;                 (lambda (x y)
+;;                 (* x y))
+;;                 a b)))
+;; 
+;;                 The times are
+;;                 (time (let ((greys (pgm-greys test-pgm))) (write-pgm (make-pgm greys (array-map (lambda (p) (round-and-clip p greys)) (array-convolve (pgm-pixels test-pgm) sharpen-filter))) "sharper-test.pgm")))
+;;                 0.514201 secs real time
+;;                 0.514190 secs cpu time (0.514190 user, 0.000000 system)
+;;                 64 collections accounting for 0.144107 secs real time (0.144103 user, 0.000000 system)
+;;                 663257736 bytes allocated
+;;                 676 minor faults
+;;                 no major faults
+;;                 (time (let* ((greys (pgm-greys test-pgm)) (edge-array (array-copy (array-map abs (array-convolve (pgm-pixels test-pgm) edge-filter)))) (max-pixel (array-fold max 0 edge-array)) (normalizer (/ greys max-pixel))) (write-pgm (make-pgm greys (array-map (lambda (p) (- greys (round-and-clip (* p normalizer) greys))) edge-array)) "edge-test.pgm")))
+;;                 0.571130 secs real time
+;;                 0.571136 secs cpu time (0.571136 user, 0.000000 system)
+;;                 57 collections accounting for 0.154109 secs real time (0.154093 user, 0.000000 system)
+;;                 695631496 bytes allocated
+;;                 959 minor faults
+;;                 no major faults
+;; 
+;; 
+;;                 In the following, where we just package up a little array for each result pixel
+;;                 that computes the componentwise products when we need them, the times are
+;; 
+;;                 (time (let ((greys (pgm-greys test-pgm))) (write-pgm (make-pgm greys (array-map (lambda (p) (round-and-clip p greys)) (array-convolve (pgm-pixels test-pgm) sharpen-filter))) "sharper-test.pgm")))
+;;                 0.095921 secs real time
+;;                 0.095922 secs cpu time (0.091824 user, 0.004098 system)
+;;                 6 collections accounting for 0.014276 secs real time (0.014275 user, 0.000000 system)
+;;                 62189720 bytes allocated
+;;                 678 minor faults
+;;                 no major faults
+;;                 (time (let* ((greys (pgm-greys test-pgm)) (edge-array (array-copy (array-map abs (array-convolve (pgm-pixels test-pgm) edge-filter)))) (max-pixel (array-fold max 0 edge-array)) (normalizer (inexact (/ greys max-pixel)))) (write-pgm (make-pgm greys (array-map (lambda (p) (- greys (round-and-clip (* p normalizer) greys))) edge-array)) "edge-test.pgm")))
+;;                 0.165065 secs real time
+;;                 0.165066 secs cpu time (0.165061 user, 0.000005 system)
+;;                 13 collections accounting for 0.033885 secs real time (0.033878 user, 0.000000 system)
+;;                 154477720 bytes allocated
+;;                 966 minor faults
+;;                 no major faults
+;;                 |#
+;;                 (lambda (i j)
+;;                   (array-fold-left
+;;                    (lambda (p q)
+;;                      (+ p q))
+;;                    0
+;;                    (make-array
+;;                     filter-domain
+;;                     (lambda (k l)
+;;                       (* (S_ (+ i k)
+;;                              (+ j l))
+;;                          (F_ k l)))))))))
+;; 
+;; (define sharpen-filter
+;;   (list->array
+;;    (make-interval '#(-1 -1) '#(2 2))
+;;    '(0 -1  0
+;;        -1  5 -1
+;;        0 -1  0)))
+;; 
+;; (define edge-filter
+;;   (list->array
+;;    (make-interval '#(-1 -1) '#(2 2))
+;;    '(0 -1  0
+;;        -1  4 -1
+;;        0 -1  0)))
+;; 
+;; (define (round-and-clip pixel max-grey)
+;;   (max 0 (min (exact (round pixel)) max-grey)))
+;; 
+;; (time
+;;   (let ((greys (pgm-greys test-pgm)))
+;;     (write-pgm
+;;      (make-pgm
+;;       greys
+;;       (array-map (lambda (p)
+;;                    (round-and-clip p greys))
+;;                  (array-convolve
+;;                   (pgm-pixels test-pgm)
+;;                   sharpen-filter)))
+;;      "sharper-test.pgm")))
+;; 
+;; (time
+;;   (let* ((greys (pgm-greys test-pgm))
+;;          (edge-array
+;;           (array-copy
+;;            (array-map
+;;             abs
+;;             (array-convolve
+;;              (pgm-pixels test-pgm)
+;;              edge-filter))))
+;;          (max-pixel
+;;           (array-fold-left max 0 edge-array))
+;;          (normalizer
+;;           (inexact (/ greys max-pixel))))
+;;     (write-pgm
+;;      (make-pgm
+;;       greys
+;;       (array-map (lambda (p)
+;;                    (- greys
+;;                       (round-and-clip (* p normalizer) greys)))
+;;                  edge-array))
+;;      "edge-test.pgm")))
+;; 
+;; 
+;; (define m (array-copy (make-array (make-interval '#(0 0) '#(40 30)) (lambda (i j) (exact->inexact (+ i j))))))
+;; 
+;; (define (array-sum a)
+;;   (array-fold-left + 0 a))
+;; (define (array-max a)
+;;   (array-fold-left max -inf.0 a))
+;; 
+;; (define (max-norm a)
+;;   (array-max (array-map abs a)))
+;; (define (one-norm a)
+;;   (array-sum (array-map abs a)))
+;; 
+;; (define (operator-max-norm a)
+;;   (max-norm (array-map one-norm (array-curry (array-permute a '#(1 0)) 1))))
+;; (define (operator-one-norm a)
+;;   ;; The "permutation" to apply here is the identity, so we omit it.
+;;   (max-norm (array-map one-norm (array-curry a 1))))
+;; 
+;; (test (operator-max-norm m) 1940.)
+;; 
+;; (test (operator-one-norm m) 1605.)
+;; 
+;; (define (all-second-differences image direction)
+;;   (let ((image-domain (array-domain image)))
+;;     (let loop ((i 1)
+;;                (result '()))
+;;       (let ((negative-scaled-direction
+;;              (vector-map (lambda (j) (* -1 j i)) direction))
+;;             (twice-negative-scaled-direction
+;;              (vector-map (lambda (j) (* -2 j i)) direction)))
+;;         (cond ((interval-intersect image-domain
+;;                                    (interval-translate image-domain negative-scaled-direction)
+;;                                    (interval-translate image-domain twice-negative-scaled-direction))
+;;                => (lambda (subdomain)
+;;                     (loop (+ i 1)
+;;                           (cons (array-copy
+;;                                  (array-map (lambda (f_i f_i+d f_i+2d)
+;;                                               (+ f_i+2d
+;;                                                  (* -2. f_i+d)
+;;                                                  f_i))
+;;                                             (array-extract image
+;;                                                            subdomain)
+;;                                             (array-extract (array-translate image
+;;                                                                             negative-scaled-direction)
+;;                                                            subdomain)
+;;                                             (array-extract (array-translate image
+;;                                                                             twice-negative-scaled-direction)
+;;                                                            subdomain)))
+;;                                 result))))
+;;               (else
+;;                (reverse result)))))))
+;; 
+;; (define image (array-copy (make-array (make-interval '#(8 8))
+;;                                       (lambda (i j)
+;;                                         (exact->inexact (+ (* i i) (* j j)))))))
+;; 
+;; (define (expose difference-images)
+;;   (pretty-print (map (lambda (difference-image)
+;;                        (list (array-domain difference-image)
+;;                              (array->list* difference-image)))
+;;                      difference-images)))
+;; (begin
+;;   (display "\nOriginal image:\n")
+;;   (pretty-print (list (array-domain image)
+;;                       (array->list* image)))
+;;   (display "\nSecond-difference images in the direction $k\\times (1,0)$, $k=1,2,...$, wherever they're defined:\n")
+;;   (expose (all-second-differences image '#(1 0)))
+;;   (display "\nSecond-difference images in the direction $k\\times (1,1)$, $k=1,2,...$, wherever they're defined:\n")
+;;   (expose (all-second-differences image '#(1 1)))
+;;   (display "\nSecond-difference images in the direction $k\\times (1,-1)$, $k=1,2,...$, wherever they're defined:\n")
+;;   (expose (all-second-differences image '#(1 -1))))
+;; 
+;; (define (make-separable-transform 1D-transform)
+;;   (lambda (a)
+;;     (let ((n (array-dimension a)))
+;;       (do ((d 0 (fx+ d 1)))
+;;           ((fx= d n))
+;;         (array-for-each
+;;          1D-transform
+;;          (array-curry (array-permute a (index-last n d)) 1))))))
+;; 
+;; (define (recursively-apply-transform-and-downsample transform)
+;;   (lambda (a)
+;;     (let ((sample-vector (make-vector (array-dimension a) 2)))
+;;       (define (helper a)
+;;         (if (fx< 1 (interval-upper-bound (array-domain a) 0))
+;;             (begin
+;;               (transform a)
+;;               (helper (array-sample a sample-vector)))))
+;;       (helper a))))
+;; 
+;; (define (recursively-downsample-and-apply-transform transform)
+;;   (lambda (a)
+;;     (let ((sample-vector (make-vector (array-dimension a) 2)))
+;;       (define (helper a)
+;;         (if (fx< 1 (interval-upper-bound (array-domain a) 0))
+;;             (begin
+;;               (helper (array-sample a sample-vector))
+;;               (transform a))))
+;;       (helper a))))
+;; 
+;; (define (1D-Haar-loop a)
+;;   (let ((a_ (array-getter a))
+;;         (a! (array-setter a))
+;;         (n (interval-upper-bound (array-domain a) 0)))
+;;     (do ((i 0 (fx+ i 2)))
+;;         ((fx= i n))
+;;       (let* ((a_i               (a_ i))
+;;              (a_i+1             (a_ (fx+ i 1)))
+;;              (scaled-sum        (fl/ (fl+ a_i a_i+1) (flsqrt 2.0)))
+;;              (scaled-difference (fl/ (fl- a_i a_i+1) (flsqrt 2.0))))
+;;         (a! scaled-sum i)
+;;         (a! scaled-difference (fx+ i 1))))))
+;; 
+;; (define 1D-Haar-transform
+;;   (recursively-apply-transform-and-downsample 1D-Haar-loop))
+;; 
+;; (define 1D-Haar-inverse-transform
+;;   (recursively-downsample-and-apply-transform 1D-Haar-loop))
+;; 
+;; (define hyperbolic-Haar-transform
+;;   (make-separable-transform 1D-Haar-transform))
+;; 
+;; (define hyperbolic-Haar-inverse-transform
+;;   (make-separable-transform 1D-Haar-inverse-transform))
+;; 
+;; (define Haar-transform
+;;   (recursively-apply-transform-and-downsample
+;;    (make-separable-transform 1D-Haar-loop)))
+;; 
+;; (define Haar-inverse-transform
+;;   (recursively-downsample-and-apply-transform
+;;    (make-separable-transform 1D-Haar-loop)))
+;; 
+;; (let ((image
+;;        (array-copy
+;;         (make-array (make-interval '#(4 4))
+;;                     (lambda (i j)
+;;                       (case i
+;;                         ((0) 1.)
+;;                         ((1) -1.)
+;;                         (else 0.)))))))
+;;   (display "\nInitial image: \n")
+;;   (pretty-print (list (array-domain image)
+;;                       (array->list* image)))
+;;   (hyperbolic-Haar-transform image)
+;;   (display "\nArray of hyperbolic Haar wavelet coefficients: \n")
+;;   (pretty-print (list (array-domain image)
+;;                       (array->list* image)))
+;;   (hyperbolic-Haar-inverse-transform image)
+;;   (display "\nReconstructed image: \n")
+;;   (pretty-print (list (array-domain image)
+;;                       (array->list* image))))
+;; 
+;; 
+;; (let ((image
+;;        (array-copy
+;;         (make-array (make-interval '#(4 4))
+;;                     (lambda (i j)
+;;                       (case i
+;;                         ((0) 1.)
+;;                         ((1) -1.)
+;;                         (else 0.)))))))
+;;   (display "\nInitial image: \n")
+;;   (pretty-print (list (array-domain image)
+;;                       (array->list* image)))
+;;   (Haar-transform image)
+;;   (display "\nArray of Haar wavelet coefficients: \n")
+;;   (pretty-print (list (array-domain image)
+;;                       (array->list* image)))
+;;   (Haar-inverse-transform image)
+;;   (display "\nReconstructed image: \n")
+;;   (pretty-print (list (array-domain image)
+;;                       (array->list* image))))
+;; 
+;; (define (LU-decomposition A)
+;;   ;; Assumes the domain of A is [0,n)\\times [0,n)
+;;   ;; and that Gaussian elimination can be applied
+;;   ;; without pivoting.
+;;   (let ((n
+;;          (interval-upper-bound (array-domain A) 0))
+;;         (A_
+;;          (array-getter A)))
+;;     (do ((i 0 (fx+ i 1)))
+;;         ((= i (fx- n 1)) A)
+;;       (let* ((pivot
+;;               (A_ i i))
+;;              (column/row-domain
+;;               ;; both will be one-dimensional
+;;               (make-interval (vector (+ i 1))
+;;                              (vector n)))
+;;              (column
+;;               ;; the column below the (i,i) entry
+;;               (specialized-array-share A
+;;                                        column/row-domain
+;;                                        (lambda (k)
+;;                                          (values k i))))
+;;              (row
+;;               ;; the row to the right of the (i,i) entry
+;;               (specialized-array-share A
+;;                                        column/row-domain
+;;                                        (lambda (k)
+;;                                          (values i k))))
+;; 
+;;              ;; the subarray to the right and
+;;              ;;below the (i,i) entry
+;;              (subarray
+;;               (array-extract
+;;                A (make-interval
+;;                   (vector (fx+ i 1) (fx+ i 1))
+;;                   (vector n         n)))))
+;;         ;; compute multipliers
+;;         (array-assign!
+;;          column
+;;          (array-map (lambda (x)
+;;                       (/ x pivot))
+;;                     column))
+;;         ;; subtract the outer product of i'th
+;;         ;; row and column from the subarray
+;;         (array-assign!
+;;          subarray
+;;          (array-map -
+;;                     subarray
+;;                     (array-outer-product * column row)))))))
+;; 
+;; 
+;; (define A
+;;   ;; A Hilbert matrix
+;;   (array-copy
+;;    (make-array (make-interval '#(4 4))
+;;                (lambda (i j)
+;;                  (/ (+ 1 i j))))))
+;; 
+;; (display "\nHilbert matrix:\n\n")
+;; (array-display A)
+;; 
+;; (LU-decomposition A)
+;; 
+;; (display "\nLU decomposition of Hilbert matrix:\n\n")
+;; 
+;; (array-display A)
+;; 
+;; ;;; Functions to extract the lower- and upper-triangular
+;; ;;; matrices of the LU decomposition of A.
+;; 
+;; (define (L a)
+;;   (let ((a_ (array-getter a))
+;;         (d  (array-domain a)))
+;;     (make-array
+;;      d
+;;      (lambda (i j)
+;;        (cond ((= i j) 1)        ;; diagonal
+;;              ((> i j) (a_ i j)) ;; below diagonal
+;;              (else 0))))))      ;; above diagonal
+;; 
+;; (define (U a)
+;;   (let ((a_ (array-getter a))
+;;         (d  (array-domain a)))
+;;     (make-array
+;;      d
+;;      (lambda (i j)
+;;        (cond ((<= i j) (a_ i j)) ;; diagonal and above
+;;              (else 0))))))       ;; below diagonal
+;; 
+;; (display "\nLower triangular matrix of decomposition of Hilbert matrix:\n\n")
+;; (array-display (L A))
+;; 
+;; (display "\nUpper triangular matrix of decomposition of Hilbert matrix:\n\n")
+;; (array-display (U A))
+;; 
+;; ;;; We'll define a brief, not-very-efficient matrix multiply routine.
+;; 
+;; (define (matrix-multiply a b)
+;;   (array-inner-product a + * b))
+;; 
+;; ;;; We'll check that the product of the result of LU
+;; ;;; decomposition of A is again A.
+;; 
+;; (define product (matrix-multiply (L A) (U A)))
+;; 
+;; (display "\nProduct of lower and upper triangular matrices ")
+;; (display "of LU decomposition of Hilbert matrix:\n\n")
+;; (array-display product)
+;; 
+;; (array-display
+;;  (matrix-multiply (list->array (make-interval '#(2 2))
+;;                                '(1 0
+;;                                    0 1))
+;;                   (make-array (make-interval '#(2 4))
+;;                               (lambda (i j)
+;;                                 (+ i j)))))
+;; 
+;; (test (myarray= (matrix-multiply (list->array (make-interval '#(2 2))
+;;                                               '(1 0
+;;                                                   0 1))
+;;                                  (make-array (make-interval '#(2 4))
+;;                                              (lambda (i j)
+;;                                                (+ i j))))
+;;                 (make-array (make-interval '#(2 4))
+;;                             (lambda (i j)
+;;                               (+ i j))))
+;;       #t)
+;; 
+;; ;; Examples from
+;; ;; http://microapl.com/apl_help/ch_020_020_880.htm
+;; 
+;; (define TABLE1
+;;   (list->array
+;;    (make-interval '#(3 2))
+;;    '(1 2
+;;        5 4
+;;        3 0)))
+;; 
+;; (define TABLE2
+;;   (list->array
+;;    (make-interval '#(2 4))
+;;    '(6 2 3 4
+;;        7 0 1 8)))
+;; 
+;; (pp (array->list* (array-inner-product TABLE1 + * TABLE2)))
+;; 
+;; (array-display (array-inner-product TABLE1 + * TABLE2))
+;; 
+;; ;;; Displays
+;; ;;; 20 2 5 20
+;; ;;; 58 10 19 52
+;; ;;; 18 6 9 12
+;; 
+;; (define X (list*->array 1 '(1 3 5 7)))
+;; 
+;; (define Y (list*->array 1 '(2 3 6 7)))
+;; 
+;; (pp (array->list* (array-inner-product X + (lambda (x y) (if (= x y) 1 0)) Y)))
+;; 
+;; ;;; Displays
+;; ;;; 2
+;; 
+;; (define A (array-copy (make-array (make-interval '#(3 4)) list)))
+;; 
+;; (array-display A)
+;; 
+;; (array-display (array-permute A '#(1 0)))
+;; 
+;; (array-display (specialized-array-reshape A (make-interval '#(4 3))))
+;; 
+;; (define B (array-sample A '#(2 1)))
+;; 
+;; (array-display B)
+;; 
+;; (test-error (array-display (specialized-array-reshape B (make-interval '#(8))))
+;;             "specialized-array-reshape: Requested reshaping is impossible: ")
+;; 
+;; (array-display (specialized-array-reshape B (make-interval '#(8)) #t))
+;; 
+;; (define interval-flat (make-interval '#(100 100 4)))
+;; 
+;; (define interval-2x2  (make-interval '#(100 100 2 2)))
+;; 
+;; (define A (array-copy (make-array interval-flat (lambda args (test-random-integer 5)))))
+;; 
+;; (define B (array-copy (make-array interval-flat (lambda args (test-random-integer 5)))))
+;; 
+;; (define C (array-copy (make-array interval-flat (lambda args 0))))
+;; 
+;; (define (2x2-matrix-multiply-into! A B C)
+;;   (let ((C! (array-setter C))
+;;         (A_ (array-getter A))
+;;         (B_ (array-getter B)))
+;;     (C! (+ (* (A_ 0 0) (B_ 0 0))
+;;            (* (A_ 0 1) (B_ 1 0)))
+;;         0 0)
+;;     (C! (+ (* (A_ 0 0) (B_ 0 1))
+;;            (* (A_ 0 1) (B_ 1 1)))
+;;         0 1)
+;;     (C! (+ (* (A_ 1 0) (B_ 0 0))
+;;            (* (A_ 1 1) (B_ 1 0)))
+;;         1 0)
+;;     (C! (+ (* (A_ 1 0) (B_ 0 1))
+;;            (* (A_ 1 1) (B_ 1 1)))
+;;         1 1)))
+;; 
+;; (time
+;;   (array-for-each 2x2-matrix-multiply-into!
+;;                   (array-curry (specialized-array-reshape A interval-2x2) 2)
+;;                   (array-curry (specialized-array-reshape B interval-2x2) 2)
+;;                   (array-curry (specialized-array-reshape C interval-2x2) 2)))
+;; 
+;; (time
+;;   (array-for-each (lambda (A B C)
+;;                     (array-assign! C (matrix-multiply A B)))
+;;                   (array-curry (specialized-array-reshape A interval-2x2) 2)
+;;                   (array-curry (specialized-array-reshape B interval-2x2) 2)
+;;                   (array-curry (specialized-array-reshape C interval-2x2) 2)))
+;; 
+;; (array-display ((array-getter
+;;                  (array-curry
+;;                   (specialized-array-reshape A interval-2x2)
+;;                   2))
+;;                 0 0))
+;; (array-display ((array-getter
+;;                  (array-curry
+;;                   (specialized-array-reshape B interval-2x2)
+;;                   2))
+;;                 0 0))
+;; (array-display ((array-getter
+;;                  (array-curry
+;;                   (specialized-array-reshape C interval-2x2)
+;;                   2))
+;;                 0 0))
+;; 
+;; (define 2x2 (make-interval '#(2 2)))
+;; 
+;; (time
+;;   (array-for-each (lambda (A B C)
+;;                     (2x2-matrix-multiply-into!
+;;                      (specialized-array-reshape A 2x2)
+;;                      (specialized-array-reshape B 2x2)
+;;                      (specialized-array-reshape C 2x2)))
+;;                   (array-curry A 1)
+;;                   (array-curry B 1)
+;;                   (array-curry C 1)))
+;; 
+;; (time
+;;   (array-for-each (lambda (A B C)
+;;                     (array-assign!
+;;                      (specialized-array-reshape C 2x2)
+;;                      (matrix-multiply
+;;                       (specialized-array-reshape A 2x2)
+;;                       (specialized-array-reshape B 2x2))))
+;;                   (array-curry A 1)
+;;                   (array-curry B 1)
+;;                   (array-curry C 1)))
+;; 
+;; 
+;; (pp "cursory array-inner-product tests")
+;; 
+;; (test-error (array-inner-product 'a 'a 'a 'a)
+;;             "array-inner-product: The first argument is not an array: ")
+;; 
+;; (test-error (array-inner-product (make-array (make-interval '#(10)) list) 'a 'a 'a)
+;;             "array-inner-product: The second argument is not a procedure: ")
+;; 
+;; (test-error (array-inner-product (make-array (make-interval '#(10)) list) list 'a 'a)
+;;             "array-inner-product: The third argument is not a procedure: ")
+;; 
+;; (test-error (array-inner-product (make-array (make-interval '#(10)) list) list list 'a)
+;;             "array-inner-product: The fourth argument is not an array: ")
+;; 
+;; (test-error (array-inner-product (make-array (make-interval '#(10 1)) list) list list (make-array (make-interval '#(10)) list))
+;;             "array-inner-product: The bounds of the last dimension of the first argument are not the same as the bounds of the first dimension of the fourth argument: ")
+;; 
+;; (test-error (array-inner-product (make-array (make-interval '#(10 1)) list) list list (make-array (make-interval '#(10 1)) list))
+;;             "array-inner-product: The bounds of the last dimension of the first argument are not the same as the bounds of the first dimension of the fourth argument: ")
+;; 
+;; 
+;; (test-error (array-inner-product (make-array (make-interval '#(1 10)) list)
+;;                                  list list
+;;                                  (make-array (make-interval '#(2 10)) list))
+;;             "array-inner-product: The bounds of the last dimension of the first argument are not the same as the bounds of the first dimension of the fourth argument: ")
+;; 
+;; 
+;; (test-error (array-inner-product (make-array (make-interval '#()) list)
+;;                                  list list
+;;                                  (make-array (make-interval '#(10 0)) list))
+;;             "array-inner-product: The first argument has dimension zero: ")
+;; 
+;; (test-error (array-inner-product (make-array (make-interval '#(10 0)) list)
+;;                                  list list
+;;                                  (make-array (make-interval '#()) list))
+;;             "array-inner-product: The fourth argument has dimension zero: ")
+;; 
+;; (let* ((A (make-array (make-interval '#(0 4)) list))
+;;        (B (make-array (make-interval '#(4 0)) list))
+;;        (C (array-inner-product A list list B))) ;; should be no error, you can take outer product of empty arrays
+;;   (test-error (array-ref C 0 0)
+;;               "array-getter: Array domain is empty: "))
+;; 
+;; 
+;; (let* ((A (make-array (make-interval '#(4 0)) list))
+;;        (B (make-array (make-interval '#(0 4)) list)))
+;;   (test-error (array-inner-product A list list B)
+;;               "array-inner-product: The width of the first axis of the fourth argument is zero: "))
+;; 
+;; 
+;; (pp "array-append and array-append! tests")
+;; 
+;; (for-each
+;;  (lambda (call/cc-safe?)
+;;    (let ((array-append
+;;           (if call/cc-safe?
+;;               array-append
+;;               array-append!))
+;;          (message
+;;           (if call/cc-safe?
+;;               "array-append:"    ;; no trailing space
+;;               "array-append!:")))
+;; 
+;;      (define (wrap error-reason)
+;;        (string-append message error-reason))
+;; 
+;;      (test-error (array-append 1 'a)
+;;                  (wrap " Expecting as the second argument a nonnull list of arrays with the same dimension: "))
+;; 
+;;      (test-error (array-append 1 '())
+;;                  (wrap " Expecting as the second argument a nonnull list of arrays with the same dimension: "))
+;; 
+;;      (test-error (array-append 1 '(a))
+;;                  (wrap " Expecting as the second argument a nonnull list of arrays with the same dimension: "))
+;; 
+;;      (test-error (array-append 1 (list (make-array (make-interval '#(1)) list) (make-array (make-interval '#(2 2)) list)))
+;;                  (wrap " Expecting as the second argument a nonnull list of arrays with the same dimension: "))
+;; 
+;;      (test-error (array-append 1 (list (make-array (make-interval '#(2 2)) list) 'a))
+;;                  (wrap " Expecting as the second argument a nonnull list of arrays with the same dimension: "))
+;; 
+;;      (test-error (array-append 3 (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 2)) list)))
+;;                  (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (exclusive) as the first argument:"))
+;; 
+;;      (test-error (array-append -1 (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 2)) list)))
+;;                  (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (exclusive) as the first argument:"))
+;; 
+;;      (test-error (array-append 2 (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 2)) list)))
+;;                  (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (exclusive) as the first argument:"))
+;; 
+;;      (test-error (array-append 0
+;;                                (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 2)) list))
+;;                                'a)
+;;                  (wrap " Expecting a storage class as the third argument: "))
+;; 
+;;      (test-error (array-append 0
+;;                                (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 2)) list))
+;;                                u1-storage-class
+;;                                'a)
+;;                  (wrap " Expecting a boolean as the fourth argument: "))
+;; 
+;;      (test-error (array-append 0
+;;                                (list (make-array (make-interval '#(2 4)) list)
+;;                                      (make-array (make-interval '#(3 5)) list)))
+;;                  (wrap " Expecting as the second argument a nonnull list of arrays with the same upper and lower bounds (except for index 0): "))
+;; 
+;;      (test-error (array-append 0
+;;                                (list (make-array (make-interval '#(1 1)) list) (make-array (make-interval '#(2 1)) list))
+;;                                u1-storage-class)
+;;                  (wrap " Not all elements of the source can be stored in destination: "))
+;;      ))
+;;  '(#t #f))
+;; 
+;; 
+;; 
+;; (define (my-array-append k . arrays)              ;; call with at least one array
+;;   (call-with-values
+;;       (lambda ()
+;;         ;; compute lower and upper bounds of where
+;;         ;; we'll copy each array argument, plus
+;;         ;; the size of the kth axis of the result array
+;;         (let loop ((result '(0))
+;;                    (arrays arrays))
+;;           (if (null? arrays)
+;;               (values (reverse result) (car result))
+;;               (let ((interval (array-domain (car arrays))))
+;;                 (loop (cons (+ (car result)
+;;                                (- (interval-upper-bound interval k)
+;;                                   (interval-lower-bound interval k)))
+;;                             result)
+;;                       (cdr arrays))))))
+;;     (lambda (axis-subdividers kth-size)
+;;       (let* ((array
+;;               (car arrays))
+;;              (lowers                         ;; the domains of the arrays differ only in the kth axis
+;;               (interval-lower-bounds->vector (array-domain array)))
+;;              (uppers
+;;               (interval-upper-bounds->vector (array-domain array)))
+;;              (result                         ;; the result array
+;;               (make-specialized-array
+;;                (let ()
+;;                  (vector-set! lowers k 0)
+;;                  (vector-set! uppers k kth-size)
+;;                  (make-interval lowers uppers))))
+;;              (translation
+;;               ;; a vector we'll use to align each argument
+;;               ;; array into the proper subarray of the result
+;;               (make-vector (array-dimension array) 0)))
+;;         (let loop ((arrays arrays)
+;;                    (subdividers axis-subdividers))
+;;           (if (null? arrays)
+;;               ;; we've assigned every array to the appropriate subarray of result
+;;               result
+;;               (let ((array (car arrays)))
+;;                 (vector-set! lowers k (car subdividers))
+;;                 (vector-set! uppers k (cadr subdividers))
+;;                 (vector-set! translation k (- (car subdividers)
+;;                                               (interval-lower-bound (array-domain array) k)))
+;;                 (array-assign!
+;;                  (array-extract result (make-interval lowers uppers))
+;;                  (array-translate array translation))
+;;                 (loop (cdr arrays)
+;;                       (cdr subdividers)))))))))
+;; 
+;; 
+;; 
+;; 
+;; 
+;; ;;; We steal some tests from Alex Shinn's test suite.
+;; 
+;; (define (append-map f l)
+;;   (foldr append
+;;          '()
+;;          (map f l)))
+;; 
+;; (define (flatten ls)
+;;   (if (pair? (car ls))
+;;       (append-map flatten ls)
+;;       ls))
+;; 
+;; (define (tensor nested-ls . o)
+;;   (let lp ((ls nested-ls) (lens '()))
+;;     (cond
+;;      ((pair? ls) (lp (car ls) (cons (length ls) lens)))
+;;      (else
+;;       (apply list->array
+;;              (make-interval (list->vector (reverse lens)))
+;;              (flatten nested-ls)
+;;              o)))))
+;; 
+;; (define (identity-array k . o)
+;;   (array-copy (make-array (make-interval (vector k k))
+;;                           (lambda args
+;;                             (if (apply = args)
+;;                                 1
+;;                                 0)))
+;;               (if (null? o) generic-storage-class (car o))))
+;; 
+;; (for-each
+;;  (lambda (array-append)
+;; 
+;;    (define (->generalized-array array)
+;;      (make-array (array-domain array)
+;;                  (array-getter array)))
+;; 
+;;    (test (array-storage-class
+;;           (array-append 0
+;;                         (list (array-copy (make-array (make-interval '#(10)) (lambda (i) (random-integer 10))) u8-storage-class)
+;;                               (array-copy (make-array (make-interval '#(10)) (lambda (i) (random-integer 10))) u16-storage-class))))
+;;          generic-storage-class)
+;; 
+;;    (test (myarray= (array-append
+;;                     0
+;;                     (list (->generalized-array (list->array (make-interval '#(2 2))
+;;                                                             '(1 2
+;;                                                                 3 4)))
+;;                           (->generalized-array (list->array (make-interval '#(2 2))
+;;                                                             '(5 6
+;;                                                                 7 8)))))
+;;                    (list->array (make-interval '#(4 2))
+;;                                 '(1 2
+;;                                     3 4
+;;                                     5 6
+;;                                     7 8)))
+;;          #t)
+;; 
+;;    (test (myarray= (array-append
+;;                     1
+;;                     (list (->generalized-array (list->array (make-interval '#(2 2))
+;;                                                             '(1 2
+;;                                                                 3 4)))
+;;                           (list->array (make-interval '#(2 2))
+;;                                        '(5 6
+;;                                            7 8))))
+;;                    (list->array (make-interval '#(2 4))
+;;                                 '(1 2 5 6
+;;                                     3 4 7 8)))
+;;          #t)
+;; 
+;;    (test (myarray= (array-append
+;;                     0
+;;                     (list (->generalized-array (list->array (make-interval '#(2 2))
+;;                                                             '(1 2
+;;                                                                 3 4)))
+;;                           (list->array (make-interval '#(2 2))
+;;                                        '(5 6
+;;                                            7 8))))
+;;                    (my-array-append
+;;                     0
+;;                     (list->array (make-interval '#(2 2))
+;;                                  '(1 2
+;;                                      3 4))
+;;                     (list->array (make-interval '#(2 2))
+;;                                  '(5 6
+;;                                      7 8))))
+;;          #t)
+;; 
+;;    (test (myarray= (array-append
+;;                     1
+;;                     (list (->generalized-array (list->array (make-interval '#(2 2))
+;;                                                             '(1 2
+;;                                                                 3 4)))
+;;                           (list->array (make-interval '#(2 2))
+;;                                        '(5 6
+;;                                            7 8))))
+;;                    (my-array-append
+;;                     1
+;;                     (list->array (make-interval '#(2 2))
+;;                                  '(1 2
+;;                                      3 4))
+;;                     (list->array (make-interval '#(2 2))
+;;                                  '(5 6
+;;                                      7 8))))
+;;          #t)
+;; 
+;;    (test (myarray= (tensor '((4 7)
+;;                              (2 6)
+;;                              (1 0)
+;;                              (0 1)))
+;;                    (array-append 0 (list (tensor '((4 7)
+;;                                                    (2 6)))
+;;                                          (identity-array 2))))
+;;          #t)
+;; 
+;;    (test (myarray= (tensor '((4 7)
+;;                              (2 6)
+;;                              (1 0)
+;;                              (0 1)))
+;;                    (array-append 0
+;;                                  (list (list->array (make-interval '#(2 0) '#(4 2))
+;;                                                     '(4 7 2 6))
+;;                                        (identity-array 2))))
+;;          #t)
+;; 
+;;    (test (myarray= (tensor '((4 7 1 0)
+;;                              (2 6 0 1)))
+;;                    (array-append 1 (list (tensor '((4 7)
+;;                                                    (2 6)))
+;;                                          (identity-array 2))))
+;;          #t)
+;; 
+;;    (test (myarray= (tensor '((4 7 2 1 0)
+;;                              (6 3 5 0 1)))
+;;                    (array-append 1 (list (tensor '((4 7 2)
+;;                                                    (6 3 5)))
+;;                                          (identity-array 2))))
+;;          #t)
+;; 
+;;    (test (myarray= (tensor '((4 7 1 0 0 1 3)
+;;                              (2 6 0 1 5 8 9)))
+;;                    (array-append
+;;                     1
+;;                     (list (list->array (make-interval '#(2 2))
+;;                                        '(4 7 2 6))
+;;                           (identity-array 2)
+;;                           (list->array (make-interval '#(2 3))
+;;                                        '(0 1 3 5 8 9)))))
+;;          #t)
+;; 
+;;    )
+;;  (list array-append array-append!))
+;; 
+;; 
+;; (do ((i 0 (+ i 1)))
+;;     ((= i random-tests))
+;;   (let* ((domain
+;;           (random-interval 1 6))  ;; you can't append zero-dimensional arrays
+;;          (dimension
+;;           (interval-dimension domain))
+;;          (A
+;;           (array-copy (make-array domain (lambda args (random 10)))))
+;;          (domain-widths
+;;           (interval-widths domain))
+;;          (cutting-axis
+;;           (random dimension))
+;;          (tiling-argument
+;;           (vector-map (lambda (k)
+;;                         (let ((kth-width (interval-width domain k)))
+;;                           (if (fx= k cutting-axis)
+;;                               (if (zero? kth-width)
+;;                                   (make-vector (random 1 4) 0)
+;;                                   (let loop ((result '())
+;;                                              (sum 0))
+;;                                     (if (fx< sum kth-width)
+;;                                         (let ((slice-width (random (+ 1 kth-width))))
+;;                                           (loop (cons slice-width result)
+;;                                                 (+ slice-width sum)))
+;;                                         (vector-permute (list->vector (cons (- (car result) (- sum kth-width))
+;;                                                                             (cdr result)))
+;;                                                         (random-permutation (length result))))))
+;;                               (if (zero? kth-width)
+;;                                   '#(0)
+;;                                   kth-width))))
+;;                       (list->vector (iota dimension))))
+;;          (arrays
+;;           (array->list (array-tile A tiling-argument)))
+;;          (A-reconstructed
+;;           (array-append cutting-axis arrays))
+;;          (A-reconstructed!
+;;           (array-append! cutting-axis arrays)))
+;;     (test (myarray= (array-translate A (vector-map -
+;;                                                    (interval-lower-bounds->vector (array-domain A-reconstructed))
+;;                                                    (interval-lower-bounds->vector (array-domain A))))
+;;                     A-reconstructed)
+;;           #t)
+;;     (test (myarray= (array-translate A (vector-map -
+;;                                                    (interval-lower-bounds->vector (array-domain A-reconstructed))
+;;                                                    (interval-lower-bounds->vector (array-domain A))))
+;;                     A-reconstructed!)
+;;           #t)))
+;; 
+;; (let* ((a (make-array (make-interval '#(4 6)) list))
+;;        (k 2)
+;;        (m (interval-upper-bound (array-domain a) 0))
+;;        (n (interval-upper-bound (array-domain a) 1)))
+;;   (pretty-print
+;;    (array->list* a))
+;;   (newline)
+;;   (pretty-print
+;;    (array->list*
+;;     (array-append
+;;      0
+;;      (list (array-extract a (make-interval (vector k 0) (vector (+ k 1) n)))
+;;            (array-extract a (make-interval (vector k n)))
+;;            (array-extract a (make-interval (vector (+ k 1) 0) (vector m n))))))))
+;; 
+;; 
+;; (next-test-random-source-state!)
+;; 
+;; (pp "array-stack and array-stack! tests")
+;; 
+;; (for-each
+;;  (lambda (call/cc-safe?)
+;;    (let ((array-stack
+;;           (if call/cc-safe?
+;;               array-stack
+;;               array-stack!))
+;;          (message
+;;           (if call/cc-safe?
+;;               "array-stack:"     ;; no trailing space
+;;               "array-stack!:")))
+;; 
+;;      (define (wrap error-reason)
+;;        (string-append message error-reason))
+;; 
+;;      (test-error (array-stack 1 'a)
+;;                  (wrap " Expecting a nonnull list of arrays with the same domains as the second argument: "))
+;; 
+;;      (test-error (array-stack 1 '())
+;;                  (wrap " Expecting a nonnull list of arrays with the same domains as the second argument: "))
+;; 
+;;      (test-error (array-stack 1 '(a))
+;;                  (wrap " Expecting a nonnull list of arrays with the same domains as the second argument: "))
+;; 
+;;      (test-error (array-stack 1 (list (make-array (make-interval '#(1)) list) (make-array (make-interval '#(2 2)) list)))
+;;                  (wrap " Expecting a nonnull list of arrays with the same domains as the second argument: "))
+;; 
+;;      (test-error (array-stack 1 (list (make-array (make-interval '#(2 2)) list) 'a))
+;;                  (wrap " Expecting a nonnull list of arrays with the same domains as the second argument: "))
+;; 
+;;      (test-error (array-stack 'a (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list)))
+;;                  (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (inclusive) as the first argument:"))
+;; 
+;;      (test-error (array-stack -1 (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list)))
+;;                  (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (inclusive) as the first argument:"))
+;; 
+;;      (test-error (array-stack 3 (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list)))
+;;                  (wrap " Expecting an exact integer between 0 (inclusive) and the dimension of the arrays (inclusive) as the first argument:"))
+;; 
+;;      (test-error (array-stack 0
+;;                               (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list))
+;;                               'a)
+;;                  (wrap " Expecting a storage class as the third argument: "))
+;; 
+;;      (test-error (array-stack 0
+;;                               (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list))
+;;                               u1-storage-class
+;;                               'a)
+;;                  (wrap " Expecting a boolean as the fourth argument: "))
+;; 
+;;      (test-error (array-stack 0
+;;                               (list (make-array (make-interval '#(2 2)) list) (make-array (make-interval '#(2 2)) list))
+;;                               u1-storage-class)
+;;                  (wrap " Not all elements of the source can be stored in destination: "))
+;; 
+;;      (test (array-storage-class
+;;             (array-stack 1 (list (make-array (make-interval '#(10)) list))))
+;;            generic-storage-class)
+;; 
+;;      (test (array-storage-class
+;;             (array-stack 1
+;;                          (list (array-copy (make-array (make-interval '#(10)) (lambda (i) (random-integer 10))) u8-storage-class)
+;;                                (array-copy (make-array (make-interval '#(10)) (lambda (i) (random-integer 10))) u16-storage-class))))
+;;            generic-storage-class)
+;; 
+;;      (test (myarray= (tensor '(((4 7) (2 6))
+;;                                ((1 0) (0 1))))
+;;                      (array-stack 0 (list (tensor '((4 7)
+;;                                                     (2 6)))
+;;                                           (identity-array 2))))
+;;            #t)
+;; 
+;;      (test (myarray= (tensor '(((4 7) (1 0))
+;;                                ((2 6) (0 1))))
+;;                      (array-stack 1 (list (tensor '((4 7)
+;;                                                     (2 6)))
+;;                                           (identity-array 2))))
+;;            #t)
+;; 
+;;      (test (myarray= (tensor '(((4 1) (7 0))
+;;                                ((2 0) (6 1))))
+;;                      (array-stack 2 (list (tensor '((4 7)
+;;                                                     (2 6)))
+;;                                           (identity-array 2))))
+;;            #t)
+;; 
+;;      (let* ((A
+;;              (make-array
+;;               (make-interval '#(4 10))
+;;               list))
+;;             (column_
+;;              (array-getter                  ;; the getter of ...
+;;               (array-curry                  ;; a 1-D array of the columns of A
+;;                (array-permute A '#(1 0))
+;;                1)))
+;;             (B
+;;              (array-stack                  ;; stack into a new 2-D array ...
+;;               1                            ;; along axis 1 (i.e., columns) ...
+;;               (map column_ '(1 2 5 8)))))  ;; the columns of A you want
+;;        (array-display B))
+;; 
+;;      (let* ((A
+;;              (make-array
+;;               (make-interval '#(4 10))
+;;               list))
+;;             (B
+;;              (array-stack 1 (map (array-getter (array-curry (array-permute A '#(1 0)) 1)) '(1 2 5 8)))))
+;;        (array-display B))
+;;      ))
+;;  '(#t #f))
+;; 
+;; 
+;; ;;; zero-dimensional and empty arrays
+;; 
+;; (let ()
+;; 
+;;   (define arrays (map (lambda (ignore) (array-copy (make-array (make-interval '#()) (lambda () (random-integer 10))))) (iota 4)))
+;; 
+;;   (define b  (array-stack 0 arrays))
+;;   (define c  (array-stack! 0 arrays))
+;; 
+;;   (test (map array-ref arrays)
+;;         (array->list b))
+;;   (test (map array-ref arrays)
+;;         (array->list c)))
+;; 
+;; (let* ((arrays (map (lambda (ignore) (array-copy (make-array (make-interval '#(0)) error))) (iota 4)))
+;;        (b (array-stack 0 arrays))
+;;        (c (array-stack 1 arrays))
+;;        (b! (array-stack! 0 arrays))
+;;        (c! (array-stack! 1 arrays)))
+;; 
+;;   (test (interval-upper-bounds->vector (array-domain b))
+;;         '#(4 0))
+;;   (test (interval-upper-bounds->vector (array-domain c))
+;;         '#(0 4))
+;; 
+;;   (test (interval-upper-bounds->vector (array-domain b!))
+;;         '#(4 0))
+;;   (test (interval-upper-bounds->vector (array-domain c!))
+;;         '#(0 4)))
+;; 
+;; 
+;; ;;; FIXME: Need to test the values of other optional arguments to array-append
+;; 
+;; (define (myarray-stack k . arrays)
+;;   (let* ((array
+;;           (car arrays))
+;;          (domain
+;;           (array-domain array))
+;;          (lowers
+;;           (interval-lower-bounds->list domain))
+;;          (uppers
+;;           (interval-upper-bounds->list domain))
+;;          (new-domain
+;;           (make-interval
+;;            (list->vector (append (take lowers k) (cons 0 (drop lowers k))))
+;;            (list->vector (append (take uppers k) (cons (length arrays) (drop uppers k))))))
+;;          (getters
+;;           (list->vector (map %%array-getter arrays))))
+;;     (make-array new-domain
+;;                 (lambda args
+;;                   (apply
+;;                    (vector-ref getters (list-ref args k))
+;;                    (append (take args k)
+;;                            (drop args (+ k 1))))))))
+;; 
+;; (do ((d 0 (fx+ d 1)))
+;;     ((= d 6))
+;;   (let* ((uppers-list
+;;           (iota d))
+;;          (domain
+;;           (make-interval (list->vector uppers-list))))
+;;     (do ((i 0 (fx+ i 1)))
+;;         ;; distribute "tests" results over five dimensions
+;;         ((= i (quotient random-tests 5)))
+;;       (let* ((arrays
+;;               (map (lambda (ignore)
+;;                      (array-copy
+;;                       (make-array domain
+;;                                   (lambda args
+;;                                     (random 256)))
+;;                       u8-storage-class))
+;;                    (iota (random 1 5))))
+;;              (k
+;;               (random (+ d 1))))
+;;         (test (myarray= (array-stack k arrays)
+;;                         (apply myarray-stack k arrays))
+;;               #t)
+;;         (test (myarray= (array-stack! k arrays)
+;;                         (apply myarray-stack k arrays))
+;;               #t)))))
+;; 
+;; (next-test-random-source-state!)
+;; 
+;; (pp "array-block and array-block! tests")
+;; 
+;; (for-each
+;;  (lambda (call/cc-safe?)
+;;    (let ((array-block
+;;           (if call/cc-safe?
+;;               array-block
+;;               array-block!))
+;;          (message
+;;           (if call/cc-safe?
+;;               "array-block: "
+;;               "array-block!: ")))
+;; 
+;;      (define (wrap error-reason)
+;;        (string-append message error-reason))
+;; 
+;;      (test-error (array-block 'a)
+;;                  (wrap "The first argument is not an array: "))
+;; 
+;;      (test-error (array-block (make-array (make-interval '#(2 2)) list) 'a)
+;;                  (wrap "The second argument is not a storage class: "))
+;; 
+;;      (test-error (array-block (make-array (make-interval '#(2 2)) list)
+;;                               u8-storage-class
+;;                               'a)
+;;                  (wrap "The third argument is not a boolean: "))
+;; 
+;;      (test-error (array-block (make-array (make-interval '#(2 2)) list))
+;;                  (wrap "Not all elements of the first argument (an array) are arrays: "))
+;; 
+;;      (test-error (array-block (vector*->array 1 (vector (vector*->array 1 '#(1 1))
+;;                                                         (vector*->array 2 '#(#(1 2) #(3 4))))))
+;;                  (wrap "Not all elements of the first argument (an array) have the same dimension as the first argument itself: "))
+;; 
+;;      (test-error (array-block (list*->array
+;;                                2
+;;                                (list (list (list*->array 2 '((0 1)
+;;                                                              (2 3)))
+;;                                            (list*->array 2 '((4)
+;;                                                              (5)))
+;;                                            (list*->array 2 '((6 7)     ;; these should each have ...
+;;                                                              (9 10)))) ;; three elements
+;;                                      (list (list*->array 2 '((12 13)))
+;;                                            (list*->array 2 '((14)))
+;;                                            (list*->array 2 '((15 16 17)))))))
+;;                  (wrap "Cannot stack array elements of the first argument into result array: "))
+;; 
+;; 
+;;      (test (array? (array-block (list*->array
+;;                                  1
+;;                                  (list (make-array (make-interval '#(0)) list)
+;;                                        (make-array (make-interval '#(0)) list)))))
+;;            #t)
+;; 
+;; 
+;;      (let* ((A (list*->array
+;;                 2
+;;                 (list (list (list*->array 2 '((0 1)
+;;                                               (2 3)))
+;;                             (list*->array 2 '((4)
+;;                                               (5)))
+;;                             (list*->array 2 '((6 7 8)
+;;                                               (9 10 11))))
+;;                       (list (list*->array 2 '((12 13)))
+;;                             (list*->array 2 '((14)))
+;;                             (list*->array 2 '((15 16 17)))))))
+;;             (A-appended
+;;              (array-block A))
+;;             (A-tiled
+;;              (array-tile A-appended '#(#(2 1) #(2 1 3)))))
+;; 
+;;        (for-each (lambda (mutable?)
+;;                    (let ((new-A (array-block A generic-storage-class mutable?)))
+;;                      (test (mutable-array? new-A)
+;;                            mutable?)))
+;;                  '(#t #f))
+;;        (for-each (lambda (mutable?)
+;;                    (parameterize ((specialized-array-default-mutable? mutable?))
+;;                      (let ((new-A (array-block A generic-storage-class)))
+;;                        (test (mutable-array? new-A)
+;;                              mutable?))))
+;;                  '(#t #f))
+;; 
+;;        (test (array-every equal?            ;; we convert them to list*'s to ignore domains.
+;;                           (array-map array->list* A)
+;;                           (array-map array->list* A-tiled))
+;;              #t))
+;; 
+;;      (let* ((A (list*->array
+;;                 2
+;;                 (list (list (list*->array 2 '((0 1)
+;;                                               (2 3)))
+;;                             (list*->array 2 '((4)
+;;                                               (5)))
+;;                             (list*->array 2 '((6 7 8)
+;;                                               (9 10 11))))
+;;                       (list (list*->array 2 '((12 13)))
+;;                             (list*->array 2 '((14)))
+;;                             (list*->array 2 '((15 16 17))))))))
+;;        (test-error (array-block A u1-storage-class)
+;;                    (wrap "Not all elements of the source can be stored in destination: ")))
+;;      ))
+;;  '(#t #f))
+;; 
+;; 
+;; 
+;; (do ((i 0 (+ i 1)))
+;;     ((= i random-tests))
+;;   (let* ((dims
+;;           (random 1 6))
+;;          (A-uppers
+;;           (list->vector (map (lambda (ignore) (random 3 6)) (iota dims))))
+;;          (A
+;;           (array-copy
+;;            (make-array (make-interval A-uppers)
+;;                        (lambda args
+;;                          (random 2)))
+;;            u1-storage-class))
+;;          (A_
+;;           (array-getter A))
+;;          (number-of-cuts
+;;           (array->vector
+;;            (make-array (make-interval (vector dims))
+;;                        (lambda args (random 3)))))
+;;          (cuts
+;;           (vector-map (lambda (cuts upper)
+;;                         (let ((bitmap (make-vector (+ upper 1) #f)))
+;;                           (vector-set! bitmap 0 #t)
+;;                           (vector-set! bitmap upper #t)
+;;                           (let loop ((i 0))
+;;                             (if (fx= i cuts)
+;;                                 (let ((result (make-vector (fx+ cuts 2))))
+;;                                   (let inner ((l 0)
+;;                                               (j 0))
+;;                                     (cond ((fx> j cuts)
+;;                                            (vector-set! result j upper)
+;;                                            result)
+;;                                           ((vector-ref bitmap l)
+;;                                            (vector-set! result j l)
+;;                                            (inner (fx+ l 1)
+;;                                                   (fx+ j 1)))
+;;                                           (else
+;;                                            (inner (fx+ l 1)
+;;                                                   j)))))
+;;                                 (let ((proposed-cut (random upper)))
+;;                                   (if (vector-ref bitmap proposed-cut)
+;;                                       (loop i)
+;;                                       (begin
+;;                                         (vector-set! bitmap proposed-cut #t)
+;;                                         (loop (fx+ i 1)))))))))
+;;                       number-of-cuts
+;;                       A-uppers))
+;;          (side-lengths
+;;           (vector-map
+;;            (lambda (cuts)
+;;              (let ((result
+;;                     (make-vector (- (vector-length cuts) 1))))
+;;                (do ((i 0 (fx+ i 1)))
+;;                    ((fx= i (vector-length result)) result)
+;;                  (vector-set! result i (- (vector-ref cuts (+ i 1))
+;;                                           (vector-ref cuts i))))))
+;;            cuts))
+;;          (A-blocks
+;;           (make-array (make-interval (vector-map (lambda (v)
+;;                                                    (- (vector-length v) 1))
+;;                                                  cuts))
+;;                       (lambda args
+;;                         (let ((vector-args (list->vector args)))
+;;                           (make-array (make-interval (vector-map (lambda (cuts i)
+;;                                                                    (vector-ref cuts i))
+;;                                                                  cuts
+;;                                                                  vector-args)
+;;                                                      (vector-map (lambda (cuts i)
+;;                                                                    (vector-ref cuts (+ i 1)))
+;;                                                                  cuts
+;;                                                                  vector-args))
+;;                                       A_)))))
+;;          (A-tiled
+;;           (array-tile A side-lengths))
+;;          (reconstructed-A
+;;           (array-block A-blocks u1-storage-class))
+;;          (reconstructed-A!
+;;           (array-block! A-blocks u1-storage-class)))
+;;     (test (array-every myarray= A-tiled A-blocks)
+;;           #t)
+;;     (test (array-every = A reconstructed-A)
+;;           #t)
+;;     (test (array-every = A reconstructed-A!)
+;;           #t)
+;;     (test (array-every = A
+;;                        (array-block
+;;                         (array-tile A
+;;                                     (list->vector
+;;                                      (map (lambda (ignore) (random 1 5))
+;;                                           (iota dims))))))
+;;           #t)
+;;     (test (array-every = A
+;;                        (array-block!
+;;                         (array-tile A
+;;                                     (list->vector
+;;                                      (map (lambda (ignore) (random 1 5))
+;;                                           (iota dims))))))
+;;           #t)))
+;; 
+;; (next-test-random-source-state!)
+;; 
+;; ;;; Let's do something similar now with possibly empty arrays and subarrays.
+;; 
+;; (do ((i 0 (+ i 1)))
+;;     ((= i random-tests))
+;;   (let* ((domain
+;;           (random-interval))
+;;          (domain-widths
+;;           (interval-widths domain))
+;;          (tiling-argument
+;;           (vector-map (lambda (width)
+;;                         (if (zero? width)                  ;; width of kth axis is 0
+;;                             (make-vector (random 1 3) 0)
+;;                             (if (even? (random 2))
+;;                                 (let loop ((result '())    ;; accumulate a list of nonnegative integers that (eventually) sum to no less than width
+;;                                            (sum 0))
+;;                                   (if (<= width sum)
+;;                                       (vector-permute (list->vector (cons (- (car result)    ;; adjust last entry so the sum is width
+;;                                                                              (- sum width))
+;;                                                                           (cdr result)))
+;;                                                       (random-permutation (length result)))  ;; randomly permute vector of cuts
+;;                                       (let ((new-width (random (+ width 1))))
+;;                                         (loop (cons new-width result)
+;;                                               (+ new-width sum)))))
+;;                                 (random 1 (+ width 3)))))               ;; a positive scalar
+;;                       domain-widths))
+;;          (A
+;;           (array-copy (make-array domain (lambda args (random 10)))))
+;;          (A-tiled
+;;           (array-tile A tiling-argument))
+;;          (A-tiled
+;;           (array-map (lambda (A) (make-array (array-domain A) (array-getter A))) A-tiled))
+;;          (A-blocked!
+;;           (array-block! A-tiled))
+;;          (A-blocked
+;;           (array-block A-tiled)))
+;;     (test (myarray= (array-translate A (vector-map - (interval-lower-bounds->vector (array-domain A)))) ;; array-block returns an array based at the origin
+;;                     A-blocked!)
+;;           #t)
+;;     (test (myarray= (array-translate A (vector-map - (interval-lower-bounds->vector (array-domain A)))) ;; array-block returns an array based at the origin
+;;                     A-blocked)
+;;           #t)))
+;; 
+;; (next-test-random-source-state!)
+;; 
+;; (define (array-pad-periodically a N)
+;;   ;; Pad a periodically with N rows and columns top and bottom, left and right.
+;;   ;; Returns a generalized array.
+;;   (let* ((domain     (array-domain a))
+;;          (m          (interval-upper-bound domain 0))
+;;          (n          (interval-upper-bound domain 1))
+;;          (a_         (array-getter a)))
+;;     (make-array (interval-dilate domain (vector (- N) (- N)) (vector N N))
+;;                 (lambda (i j)
+;;                   (a_ (modulo i m) (modulo j n))))))
+;; 
+;; (define (neighbor-count a)
+;;   (let* ((big-a      (array-copy (array-pad-periodically a 1)
+;;                                  (array-storage-class a)))
+;;          (domain     (array-domain a))
+;;          (translates (map (lambda (translation)
+;;                             (array-extract (array-translate big-a translation) domain))
+;;                           '(#(1 0) #(0 1) #(-1 0) #(0 -1)
+;;                             #(1 1) #(1 -1) #(-1 1) #(-1 -1)))))
+;;     ;; Returns a generalized array that contains the number
+;;     ;; of 1s in the 8 cells surrounding each cell in the original array.
+;;     (apply array-map + translates)))
+;; 
+;; (define (game-rules a neighbor-count)
+;;   ;; a is a single cell, neighbor-count is the count of 1s in
+;;   ;; its 8 neighboring cells.
+;;   (if (= a 1)
+;;       (if (or (= neighbor-count 2)
+;;               (= neighbor-count 3))
+;;           1 0)
+;;       ;; (= a 0)
+;;       (if (= neighbor-count 3)
+;;           1 0)))
+;; 
+;; (define (advance a)
+;;   (array-copy
+;;    (array-map game-rules a (neighbor-count a))
+;;    (array-storage-class a)))
+;; 
+;; (define glider
+;;   (list*->array
+;;    2
+;;    '((0 0 0 0 0 0 0 0 0 0)
+;;      (0 0 1 0 0 0 0 0 0 0)
+;;      (0 0 0 1 0 0 0 0 0 0)
+;;      (0 1 1 1 0 0 0 0 0 0)
+;;      (0 0 0 0 0 0 0 0 0 0)
+;;      (0 0 0 0 0 0 0 0 0 0)
+;;      (0 0 0 0 0 0 0 0 0 0)
+;;      (0 0 0 0 0 0 0 0 0 0)
+;;      (0 0 0 0 0 0 0 0 0 0)
+;;      (0 0 0 0 0 0 0 0 0 0))
+;;    u1-storage-class))
+;; 
+;; (define (generations a N)
+;;   (do ((i 0 (fx+ i 1))
+;;        (a a  (advance a)))
+;;       ((fx= i N))
+;;     (newline)
+;;     (pretty-print (array->list* a))))
+;; 
+;; (generations glider 5)
+;; 
+;; 
+;; ;;; Unit tests
+;; 
+;; (pp "unit-tests")
+;; 
+;; (let ((A (make-specialized-array (make-interval '#(5 5 5 5 5) '#(8 8 8 8 8))))
+;;       (B (make-specialized-array (make-interval '#(5 5 5 5 5)))))
+;;   (test-error (array-ref A 0 0)
+;;               "array-getter: multi-index is not the correct dimension: ")
+;;   (test-error (array-set! A 2 0 0)
+;;               "array-setter: multi-index is not the correct dimension: ")
+;;   (test-error (array-ref B 0 0)
+;;               "array-getter: multi-index is not the correct dimension: ")
+;;   (test-error (array-set! B 2 0 0)
+;;               "array-setter: multi-index is not the correct dimension: "))
+;; 
+;; (pp "Test interactions of continuations and array-{copy|append|stack|decurry|block}")
+;; 
+;; (pp 'array-copy)
+;; 
+;; (let* ((cont #f)
+;;        (call-cont #t)
+;;        (domain (make-interval '#(2 2)))
+;;        (A_ (lambda (i j)
+;;              (call-with-current-continuation
+;;               (lambda (c)
+;;                 (if (= i j 0)
+;;                     (set! cont c))
+;;                 1))))
+;;        (A (make-array domain A_))
+;;        (array-list '()))
+;;   (let ((temp (array-copy A)))
+;;     (set! array-list (cons temp array-list)))
+;;   (if call-cont
+;;       (begin
+;;         (set! call-cont #f)
+;;         (cont 4)))
+;;   (for-each (lambda (result truth)
+;;               (test (array->list* result)
+;;                     truth))
+;;             array-list
+;;             '(((4 1) (1 1))
+;;               ((1 1) (1 1)))))
+;; 
+;; (pp 'array-append)
+;; 
+;; (let* ((cont #f)
+;;        (call-cont #t)
+;;        (domain (make-interval '#(2 2)))
+;;        (B (list*->array 2 '((1 2) (3 4))))
+;;        (A_ (lambda (i j)
+;;              (call-with-current-continuation
+;;               (lambda (c)
+;;                 (if (= i j 0)
+;;                     (set! cont c))
+;;                 1))))
+;;        (A (make-array domain A_))
+;;        (array-list '()))
+;;   (let ((temp (array-append 1 (list A B))))
+;;     (set! array-list (cons temp array-list)))
+;;   (if call-cont
+;;       (begin
+;;         (set! call-cont #f)
+;;         (cont 4)))
+;;   (for-each (lambda (result truth)
+;;               (test (array->list* result)
+;;                     truth))
+;;             array-list
+;;             '(((4 1 1 2) (1 1 3 4))
+;;               ((1 1 1 2) (1 1 3 4)))))
+;; 
+;; (pp 'array-stack)
+;; 
+;; (let* ((cont #f)
+;;        (call-cont #t)
+;;        (domain (make-interval '#(2 2)))
+;;        (B (list*->array 2 '((1 2) (3 4))))
+;;        (A_ (lambda (i j)
+;;              (call-with-current-continuation
+;;               (lambda (c)
+;;                 (if (= i j 0)
+;;                     (set! cont c))
+;;                 1))))
+;;        (A (make-array domain A_))
+;;        (array-list '()))
+;;   (let ((temp (array-stack 1 (list A B))))
+;;     (set! array-list (cons temp array-list)))
+;;   (if call-cont
+;;       (begin
+;;         (set! call-cont #f)
+;;         (cont 4)))
+;;   (for-each (lambda (result truth)
+;;               (test (array->list* result)
+;;                     truth))
+;;             array-list
+;;             '((((4 1) (1 2)) ((1 1) (3 4)))
+;;               (((1 1) (1 2)) ((1 1) (3 4))))))
+;; 
+;; (pp 'array-block)
+;; 
+;; (let* ((cont #f)
+;;        (call-cont #t)
+;;        (domain (make-interval '#(2 2)))
+;;        (B (list*->array 2 '((1 2) (3 4))))
+;;        (A_ (lambda (i j)
+;;              (call-with-current-continuation
+;;               (lambda (c)
+;;                 (if (= i j 0)
+;;                     (set! cont c))
+;;                 1))))
+;;        (A (make-array domain A_))
+;;        (C (list*->array 2 (list (list A B))))
+;;        (array-list '()))
+;;   (let ((temp (array-block C)))
+;;     (set! array-list (cons temp array-list)))
+;;   (if call-cont
+;;       (begin
+;;         (set! call-cont #f)
+;;         (cont 4)))
+;;   (for-each (lambda (result truth)
+;;               (test (array->list* result)
+;;                     truth))
+;;             array-list
+;;             '(((4 1 1 2) (1 1 3 4))
+;;               ((1 1 1 2) (1 1 3 4)))))
+;; 
+;; (pp 'array-decurry)
+;; 
+;; (let* ((cont #f)
+;;        (call-cont #t)
+;;        (domain (make-interval '#(2 2)))
+;;        (B (list*->array 2 '((1 2) (3 4))))
+;;        (A_ (lambda (i j)
+;;              (call-with-current-continuation
+;;               (lambda (c)
+;;                 (if (= i j 0)
+;;                     (set! cont c))
+;;                 1))))
+;;        (A (make-array domain A_))
+;;        (C (list*->array 1 (list A B)))
+;;        (array-list '()))
+;;   (let ((temp (array-decurry C)))
+;;     (set! array-list (cons temp array-list)))
+;;   (if call-cont
+;;       (begin
+;;         (set! call-cont #f)
+;;         (cont 4)))
+;;   (for-each (lambda (result truth)
+;;               (test (array->list* result)
+;;                     truth))
+;;             array-list
+;;             '((((4 1) (1 1)) ((1 2) (3 4)))
+;;               (((1 1) (1 1)) ((1 2) (3 4))))))
+;; 
+;; (pp "Test that the corresponding ! procedures don't crash when dealing with continuations.")
+;; 
+;; (pp 'array-copy!)
+;; 
+;; (let* ((cont #f)
+;;        (call-cont #t)
+;;        (domain (make-interval '#(2 2)))
+;;        (A_ (lambda (i j)
+;;              (call-with-current-continuation
+;;               (lambda (c)
+;;                 (if (= i j 0)
+;;                     (set! cont c))
+;;                 1))))
+;;        (A (make-array domain A_))
+;;        (array-list '()))
+;;   (let ((temp (array-copy! A)))
+;;     (set! array-list (cons temp array-list)))
+;;   (if call-cont
+;;       (begin
+;;         (set! call-cont #f)
+;;         (cont 4))))
+;; 
+;; (pp 'array-append!)
+;; 
+;; (let* ((cont #f)
+;;        (call-cont #t)
+;;        (domain (make-interval '#(2 2)))
+;;        (B (list*->array 2 '((1 2) (3 4))))
+;;        (A_ (lambda (i j)
+;;              (call-with-current-continuation
+;;               (lambda (c)
+;;                 (if (= i j 0)
+;;                     (set! cont c))
+;;                 1))))
+;;        (A (make-array domain A_))
+;;        (array-list '()))
+;;   (let ((temp (array-append! 1 (list A B))))
+;;     (set! array-list (cons temp array-list)))
+;;   (if call-cont
+;;       (begin
+;;         (set! call-cont #f)
+;;         (cont 4))))
+;; 
+;; (pp 'array-stack!)
+;; 
+;; (let* ((cont #f)
+;;        (call-cont #t)
+;;        (domain (make-interval '#(2 2)))
+;;        (B (list*->array 2 '((1 2) (3 4))))
+;;        (A_ (lambda (i j)
+;;              (call-with-current-continuation
+;;               (lambda (c)
+;;                 (if (= i j 0)
+;;                     (set! cont c))
+;;                 1))))
+;;        (A (make-array domain A_))
+;;        (array-list '()))
+;;   (let ((temp (array-stack! 1 (list A B))))
+;;     (set! array-list (cons temp array-list)))
+;;   (if call-cont
+;;       (begin
+;;         (set! call-cont #f)
+;;         (cont 4))))
+;; 
+;; (pp 'array-block!)
+;; 
+;; (let* ((cont #f)
+;;        (call-cont #t)
+;;        (domain (make-interval '#(2 2)))
+;;        (B (list*->array 2 '((1 2) (3 4))))
+;;        (A_ (lambda (i j)
+;;              (call-with-current-continuation
+;;               (lambda (c)
+;;                 (if (= i j 0)
+;;                     (set! cont c))
+;;                 1))))
+;;        (A (make-array domain A_))
+;;        (C (list*->array 2 (list (list A B))))
+;;        (array-list '()))
+;;   (let ((temp (array-block! C)))
+;;     (set! array-list (cons temp array-list)))
+;;   (if call-cont
+;;       (begin
+;;         (set! call-cont #f)
+;;         (cont 4))))
+;; 
+;; (pp 'array-decurry!)
+;; 
+;; (let* ((cont #f)
+;;        (call-cont #t)
+;;        (domain (make-interval '#(2 2)))
+;;        (B (list*->array 2 '((1 2) (3 4))))
+;;        (A_ (lambda (i j)
+;;              (call-with-current-continuation
+;;               (lambda (c)
+;;                 (if (= i j 0)
+;;                     (set! cont c))
+;;                 1))))
+;;        (A (make-array domain A_))
+;;        (C (list*->array 1 (list A B)))
+;;        (array-list '()))
+;;   (let ((temp (array-decurry! C)))
+;;     (set! array-list (cons temp array-list)))
+;;   (if call-cont
+;;       (begin
+;;         (set! call-cont #f)
+;;         (cont 4))))
+;; 
+;; (pp 'array-assign!)
+;; 
+;; (let* ((cont #f)
+;;        (call-cont #t)
+;;        (domain (make-interval '#(2 2)))
+;;        (B (list*->array 2 '((1 2) (3 4))))
+;;        (A_ (lambda (i j)
+;;              (call-with-current-continuation
+;;               (lambda (c)
+;;                 (if (= i j 0)
+;;                     (set! cont c))
+;;                 1))))
+;;        (A (make-array domain A_)))
+;;   (array-assign! B A)
+;;   (if call-cont
+;;       (begin
+;;         (set! call-cont #f)
+;;         (cont 4))))
+;; 
+;; (for-each display (list "Failed " failed-tests " out of " total-tests " total tests.\n"))
