@@ -318,7 +318,9 @@
    (lambda (bool)
      (if (boolean? bool)
          bool
-         (error "specialized-array-default-mutable?: The argument is not a boolean: " bool)))))
+         (error
+          "specialized-array-default-mutable?: The argument is not a boolean: "
+          bool)))))
 
 (define make-array
   (case-lambda
@@ -647,7 +649,7 @@
                              mantissa)))
 
              (let ((sign-bit
-                    (if (flnegative? (##flcopysign 1. x)) 1 0)))
+                    (if (flnegative? (flcopysign 1. x)) 1 0)))
                (cond ((not (flfinite? x))
                       (if (flnan? x)
                           (construct-representation sign-bit ,exponent-mask ,mantissa-mask)
@@ -665,7 +667,7 @@
                               ((fx< ,(fx- exponent-bias) exponent)
                                ;; probably normal, finite in representation, unless overflow
                                (let ((possible-mantissa
-                                      (##flonum->fixnum (flround (flscalbn (flabs x) (fx- ,mantissa-width exponent))))))
+                                      (flonum->fixnum (flround (flscalbn (flabs x) (fx- ,mantissa-width exponent))))))
                                  (if (fx< possible-mantissa ,(fx* 2 2^mantissa-width))
                                      ;; no overflow
                                      (construct-representation sign-bit
@@ -680,7 +682,7 @@
                               (else
                                ;; usally subnormal
                                (let ((possible-mantissa
-                                      (##flonum->fixnum (flround (flscalbn (flabs x) ,(fx+ exponent-bias mantissa-width -1))))))
+                                      (flonum->fixnum (flround (flscalbn (flabs x) ,(fx+ exponent-bias mantissa-width -1))))))
                                  (if (fx< possible-mantissa ,2^mantissa-width)
                                      ;; doesn't overflow to normal
                                      (construct-representation sign-bit 0 possible-mantissa)
