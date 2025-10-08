@@ -1,4 +1,24 @@
 #lang racket
+;;;
+;;; Compatibility Layer for Gambit Scheme
+;;;
+
+;; The files `mini-arrays.scm` and `test-mini-arrays.scm` are
+;; written in Gambit Scheme. This file sets up an environment
+;; in which we can run these files unchanged (mostly) in Racket.
+;;
+;; These changes were maded to the scheme files:
+;;
+;;   - any identifiers with `##` prefix was renamed ( "##" -> "" )
+;;   - (##max-char-code) was replaced with 1114111
+
+;; Other notes:
+;;   - redefinition is not allowed in Racket (at least by default)
+;;     so use (let () ...) to make a new scope for each
+;;     unrelated test.
+;;   - `set-car!` and `set-cdr!` are used in some tests
+;;     They could be rewritten to use vectors instead.
+
 (provide (all-defined-out))
 
 (require
