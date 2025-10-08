@@ -3,6 +3,15 @@
 ;;; Compatibility Layer for Gambit Scheme
 ;;;
 
+;; Bradley Lucier has provided a minimal Scheme implementation
+;; for this arrays proposal.
+
+;; https://racket.discourse.group/t/arrays-proposal-new-minimal-implementation/3965
+
+;; The implementation uses Gambit Scheme.
+;; This file attempts to make the implementation run on Racket
+;; without changing the original source files.
+
 ;; The files `mini-arrays.scm` and `test-mini-arrays.scm` are
 ;; written in Gambit Scheme. This file sets up an environment
 ;; in which we can run these files unchanged (mostly) in Racket.
