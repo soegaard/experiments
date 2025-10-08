@@ -2,39 +2,34 @@
 (provide (all-defined-out))
 
 (require
+  ; Homogeneous vectors
   (except-in ffi/vector u8vector-copy!)
   "vector-functions.rkt" ; s8vector-copy! and friends
-
-  ; (for-syntax "regexp-replace-port.rkt") ; not used at the moment
-
+  
   racket/list
   racket/vector
   racket/syntax
 
-  (only-in racket/flonum ->fl fl= flrandom)
-
-  srfi/27
-  
   (only-in srfi/1 iota take drop fold list-copy every)
   (only-in srfi/43 vector-every vector-concatenate)
 
+  srfi/27 ; random number generation
+
+  ; use Scheme names for most flonum and fixnum operations
   rnrs/arithmetic/flonums-6
+  (only-in racket/flonum ->fl fl= flrandom)
 
-  (only-in racket/fixnum               fx+ fx= fx< fx> fx<= fxquotient)
   (except-in rnrs/arithmetic/fixnums-6 fx+)
-
+  (only-in racket/fixnum               fx+ fx= fx< fx> fx<= fxquotient)
+  
   (for-syntax racket/syntax
               racket/string
               (only-in racket/fixnum               fx+ fx= fx< fx> fx<= fxquotient)
               (except-in rnrs/arithmetic/fixnums-6 fx+)
               rnrs/arithmetic/flonums-6)
-  ; srfi/4
   )
 
 ;; Compatibility helpers for Gambit Scheme code
-
-(define (fxeven? x)
-  (fx= (fxand x 1) 0))
 
 (define (flscalbn x n)
   (let ((factor (expt 2 n)))
@@ -54,6 +49,9 @@
 
 (define (concatenate xss)
   (append* xss))
+
+(define (make-list n [fill 0])
+  (for/list ([_ n]) fill)) 
 
 (define pp pretty-print)
 
@@ -88,10 +86,6 @@
 (define (wrong-number-of-arguments-exception? e)
   (exn:fail:contract:arity? e))
 
-(define (make-list n [fill 0])
-  (for/list ([_ n]) fill)) 
-
-
 ;;; flilog
 
 ;; Constants mirroring common C/POSIX choices.
@@ -103,25 +97,26 @@
 
 ;; Return the unbiased base-2 exponent of a flonum, à la C ilogb().
 ;; For subnormals, returns the exponent of the normalized equivalent.
-;; Zero -> FP-ILOGB0, ±Inf -> INT_MAX, NaN -> FP-ILOGBNAN.
+;;   Zero -> FP-ILOGB0,  ±Inf -> INT_MAX,  NaN -> FP-ILOGBNAN.
 (define (flilogb x)
   (define xfl (if (exact-integer? x) (->fl x) x))
   (cond
-    [(flnan? xfl)      FP-ILOGBNAN]
+    [(flnan? xfl)         FP-ILOGBNAN]
     [(or (fl= xfl +inf.0) (fl= xfl -inf.0)) INT-MAX]
-    [(fl= xfl 0.0)     FP-ILOGB0]
+    [(fl= xfl 0.0)        FP-ILOGB0]
     [else
      ;; Extract IEEE-754 fields from the 64-bit representation.
-     (define bs (real->floating-point-bytes xfl 8 (system-big-endian?)))
-     (define bits (integer-bytes->integer bs (system-big-endian?) #f))
+     (define bs       (real->floating-point-bytes xfl 8 (system-big-endian?)))
+     (define bits     (integer-bytes->integer bs (system-big-endian?) #f))
      (define exp-bits (bitwise-and (arithmetic-shift bits -52) #x7FF))
-     (define frac      (bitwise-and bits #x000FFFFFFFFFFFFF))
-     (define BIAS 1023)
+     (define frac     (bitwise-and bits #x000FFFFFFFFFFFFF))
+     (define BIAS     1023)
      (cond
+       ; normal numbers
        [(and (positive? exp-bits) (< exp-bits 2047))
-        (- exp-bits BIAS)]                    ; normal numbers
+        (- exp-bits BIAS)] 
        [(zero? exp-bits)
-        ;; subnormal: ilogb = -1023 - leading_zeros(frac)
+        ; subnormal: ilogb = -1023 - leading_zeros(frac)
         (define (leading-zeros-52 f)
           (let loop ([i 51])
             (cond [(< i 0) 52]
@@ -129,7 +124,7 @@
                   [else (loop (sub1 i))])))
         (- 0 BIAS (leading-zeros-52 frac))]  ; -1023 - lz
        [else
-        ;; exp-bits = 2047 would be inf/nan, but we handled those above
+        ; exp-bits = 2047 would be inf/nan, but we handled those above
         FP-ILOGBNAN])]))
 
 
@@ -187,22 +182,10 @@
              (datum->syntax stx
                             (apply macro-fn (cdr datums))))))]))
 
+; ignore Gambit specific declarations
 (define-syntax (declare stx) #'(void))
 
-#;(begin-for-syntax
-  (define read-syntax/gambit
-    (case-lambda
-      [()
-       (read-syntax/gambit (object-name (current-input-port))
-                           (current-input-port))]
-      [(source-name)
-       (read-syntax/gambit source-name
-                           (current-input-port))]
-      [(source-name in)
-       (read-syntax source-name
-                    (regexp-replace-port in "#!" "#:"))])))
-
-
+; Gambit has one-armed `if`.
 (let-syntax ([if (λ (stx)
                    (syntax-case stx ()
                      [(_if e0 e1)    #'(if e0 e1 (void))]
@@ -212,12 +195,7 @@
   (include "test-mini-arrays.scm")
   ; (test (+ 1 2) 4) ; '((+ 1 2) " => " 3 ", not " 4)
   (void)
-  )  
-
-; (include/reader "test.scm" read-syntax/gambit)        ; copying expressions one-by-one over here
-; (include/reader "test-mini-arrays.scm" read-syntax/gambit)
-
-
+  )
 
 
 ; Test cases for `flilogb`:
