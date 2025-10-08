@@ -57,24 +57,36 @@
 
 (define pp pretty-print)
 
+;;; Error exceptions in Gambit carry both a message and
+;;; and some objects.
+
+(struct exn:fail:error exn:fail (objects)
+  #:extra-constructor-name make-exn:fail:error
+  #:transparent)
+  
+; The error functions of Racket and Gambit differ slightly.
+(define (error message . objects)
+  (raise (exn:fail:error message  
+                         (current-continuation-marks)
+                         objects)))
+
 (define (with-exception-catcher handler thunk)
-  (with-handlers ([(λ (x) #t)
-                   (λ (e) (handler e))])
+  (with-handlers ([exn:fail:error? (λ (e) (handler e))])
     (thunk)))
 
 (define (error-exception? e)
-  #t) ; probably better to use `exn?` here.
+  exn:fail:error)
 
 (define (error-exception-message e)
   (exn-message e))
 
 (define (unbound-global-exception? e)
-  #f)
+  exn?)
 
 (define unbound-global-exception-variable #f)
 
 (define (wrong-number-of-arguments-exception? e)
-  #f)  ; todo
+  (exn:fail:contract:arity? e))
 
 (define (make-list n [fill 0])
   (for/list ([_ n]) fill)) 
@@ -190,10 +202,6 @@
        (read-syntax source-name
                     (regexp-replace-port in "#!" "#:"))])))
 
-; The error functions of Racket and Gambit differ slightly.
-(define (error message . objs)
-  (raise (exn:fail message #;(apply ~a (add-between (cons message objs) " "))
-                   (current-continuation-marks))))
 
 (let-syntax ([if (λ (stx)
                    (syntax-case stx ()
